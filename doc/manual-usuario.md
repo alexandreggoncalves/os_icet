@@ -89,6 +89,7 @@ Para usuarios comuns:
 - O usuario informa tipo de demanda, bloco, sala e descricao.
 - A mesma regra vale para administradores: o chamado usa os dados da conta conectada e fica vinculado a ela.
 - Contas antigas sem SIAPE cadastrado devem ser regularizadas antes da abertura de chamados.
+- Para efeito de cadastro e permissao no ambiente inicial, o administrador master usa o SIAPE reservado `0000000`.
 
 Para administradores:
 

@@ -25,11 +25,11 @@ class Command(BaseCommand):
             )
 
             User.objects.update_or_create(
-                id=1,
+                login="admin",
                 defaults={
                     "nome": "Administrador Master",
-                    "login": "admin",
                     "email": "admin@icet.ufam.edu.br",
+                    "siape": "0000000",
                     "password_hash": make_password("admin1234"),
                     "group": admin_group,
                     "role": "admin",

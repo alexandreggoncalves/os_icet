@@ -235,6 +235,7 @@ Antes de commitar:
 - Nao adicionar `runserver*.log` ou `runserver.exitcode`.
 - Conferir `git diff`.
 - Atualizar `doc/` quando houver mudanca funcional.
+- Manter o usuario master identificado pelo login `admin` nos seeds; nao depender de ID fixo.
 
 ## 14. Onde procurar problemas
 

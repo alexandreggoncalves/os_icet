@@ -242,6 +242,8 @@ Tokens de sessao Bearer.
 
 ## Migracoes
 
+A migracao `0003_set_master_admin_siape` atribui o SIAPE reservado `0000000` ao usuario master de login `admin` apenas quando ele ainda nao possui SIAPE. O comando `seed_data` usa o mesmo valor nas instalacoes novas.
+
 Aplicar migrations:
 
 ```bash

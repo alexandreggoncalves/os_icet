@@ -65,6 +65,7 @@
 - Todos os usuarios, inclusive administradores, criam solicitacoes com os proprios dados cadastrais.
 - O SIAPE da solicitacao e obrigatorio, deve ter 7 digitos e sempre vem do banco.
 - A solicitacao fica vinculada ao usuario autenticado para permitir o acompanhamento e as interacoes proprias.
+- O administrador master de login `admin` recebe o SIAPE reservado `0000000` para permitir a abertura de solicitacoes iniciais.
 - Toda solicitacao recebe protocolo `OS-ANO-NNNNN`.
 - Ao criar solicitacao pelo endpoint principal, o sistema registra interacao inicial.
 - Administradores visualizam todas as solicitacoes.

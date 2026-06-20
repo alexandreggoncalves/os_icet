@@ -3,6 +3,7 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth.hashers import check_password, make_password
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
@@ -200,6 +201,12 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(item.siape, self.admin.siape)
         self.assertEqual(item.email, self.admin.email)
         self.assertEqual(item.perfil, "Administradores")
+
+    def test_seed_assigns_placeholder_siape_to_master_admin(self):
+        call_command("seed_data", verbosity=0)
+
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.siape, "0000000")
 
     def test_admin_can_update_users_siape(self):
         user = User.objects.create(
