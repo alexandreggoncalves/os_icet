@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import math
 import re
 import secrets
 
@@ -17,6 +18,8 @@ from .models import AccessGroup, Attachment, Demand, Interaction, PasswordReset,
 
 
 ALLOWED_UPLOAD_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".doc", ".docx"}
+MAX_FAILED_LOGIN_ATTEMPTS = 3
+LOGIN_LOCK_MINUTES = 15
 
 
 def index(request):
@@ -321,15 +324,51 @@ def login(request):
     payload = read_json(request)
     login_value = payload.get("login", "").strip()
     password = payload.get("password", "")
-    user = User.objects.select_related("group").filter(login=login_value).first()
-    if not user or not check_password(password, user.password_hash):
-        return api_response({"detail": "Credenciais inválidas."}, 401)
-    if user.approval_status == "pending":
-        return api_response({"detail": "Cadastro pendente de validação pelo administrador."}, 403)
-    if user.approval_status != "approved":
-        return api_response({"detail": "Cadastro não aprovado. Procure a administração do sistema."}, 403)
-    if not user.active:
-        return api_response({"detail": "Usuário desativado. Procure a administração do sistema."}, 403)
+    now = timezone.now()
+    with transaction.atomic():
+        user = User.objects.select_for_update().filter(login=login_value).first()
+        if user and user.locked_until and user.locked_until > now:
+            remaining_minutes = max(1, math.ceil((user.locked_until - now).total_seconds() / 60))
+            return api_response(
+                {
+                    "detail": (
+                        f"Conta temporariamente bloqueada. Tente novamente em {remaining_minutes} minuto(s) "
+                        "ou use Esqueci minha senha."
+                    )
+                },
+                423,
+            )
+        if user and user.locked_until:
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            user.save(update_fields=["failed_login_attempts", "locked_until"])
+        if not user or not check_password(password, user.password_hash):
+            if user:
+                user.failed_login_attempts += 1
+                if user.failed_login_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    user.locked_until = now + timezone.timedelta(minutes=LOGIN_LOCK_MINUTES)
+                user.save(update_fields=["failed_login_attempts", "locked_until"])
+                if user.locked_until:
+                    return api_response(
+                        {
+                            "detail": (
+                                "Conta bloqueada por 15 minutos após 3 tentativas inválidas. "
+                                "Você também pode usar Esqueci minha senha."
+                            )
+                        },
+                        423,
+                    )
+            return api_response({"detail": "Credenciais inválidas."}, 401)
+        if user.approval_status == "pending":
+            return api_response({"detail": "Cadastro pendente de validação pelo administrador."}, 403)
+        if user.approval_status != "approved":
+            return api_response({"detail": "Cadastro não aprovado. Procure a administração do sistema."}, 403)
+        if not user.active:
+            return api_response({"detail": "Usuário desativado. Procure a administração do sistema."}, 403)
+        if user.failed_login_attempts or user.locked_until:
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            user.save(update_fields=["failed_login_attempts", "locked_until"])
     token = secrets.token_urlsafe(32)
     SessionToken.objects.create(token=token, user=user, expires_at=timezone.now() + timezone.timedelta(hours=8))
     return api_response(
@@ -420,12 +459,11 @@ def forgot_password(request):
         login_value = login_from_email(fallback_email)
     if not valid_institutional_login(login_value):
         return api_response({"detail": "Informe um login institucional válido, sem @ ou domínio."}, 422)
-    email = institutional_email(login_value)
-    user = User.objects.filter(email__iexact=email).first()
+    user = User.objects.filter(login__iexact=login_value).first()
     if user:
         code = f"{secrets.randbelow(1000000):06d}"
         PasswordReset.objects.create(user=user, code_hash=make_password(code), expires_at=timezone.now() + timezone.timedelta(minutes=15))
-        write_reset_email(user.email, code)
+        write_reset_email(institutional_email(login_value), code)
     return api_response(
         {
             "mensagem": "Se o e-mail estiver cadastrado, um código de verificação foi enviado.",
@@ -451,12 +489,14 @@ def reset_password(request):
     validation_error = password_validation_error(new_password)
     if validation_error:
         return api_response({"detail": validation_error}, 422)
-    user = User.objects.filter(email__iexact=email).first()
+    user = User.objects.filter(login__iexact=login_from_email(email)).first()
     reset = PasswordReset.objects.filter(user=user, used_at__isnull=True).first() if user else None
     if not user or not reset or reset.expires_at < timezone.now() or not check_password(code, reset.code_hash):
         return api_response({"detail": "Código inválido ou expirado."}, 422)
     user.password_hash = make_password(new_password)
-    user.save(update_fields=["password_hash"])
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    user.save(update_fields=["password_hash", "failed_login_attempts", "locked_until"])
     reset.used_at = timezone.now()
     reset.save(update_fields=["used_at"])
     return api_response({"mensagem": "Senha redefinida com sucesso. Faça login com a nova senha."})

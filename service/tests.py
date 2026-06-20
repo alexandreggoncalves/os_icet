@@ -132,6 +132,8 @@ class UserRegistrationTests(TestCase):
 
     @patch("service.views.write_reset_email")
     def test_password_reset_uses_institutional_login(self, write_email):
+        self.admin.email = "admin@icet.ufam.edu.br"
+        self.admin.save(update_fields=["email"])
         response = self.post_json("/api/auth/forgot-password", {"login": "ADMIN"})
 
         self.assertEqual(response.status_code, 200)
@@ -143,6 +145,73 @@ class UserRegistrationTests(TestCase):
             {"email": "admin@example.com"},
         )
         self.assertEqual(external_response.status_code, 422)
+
+    def test_three_invalid_passwords_lock_account_for_fifteen_minutes(self):
+        for attempt in range(1, 4):
+            response = self.post_json(
+                "/api/auth/login",
+                {"login": "admin", "password": "SenhaIncorreta@1"},
+            )
+            self.assertEqual(response.status_code, 423 if attempt == 3 else 401)
+
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.failed_login_attempts, 3)
+        self.assertGreater(self.admin.locked_until, timezone.now() + timezone.timedelta(minutes=14))
+
+        blocked_response = self.post_json(
+            "/api/auth/login",
+            {"login": "admin", "password": "Admin@123"},
+        )
+        self.assertEqual(blocked_response.status_code, 423)
+
+    def test_expired_lock_allows_login_and_clears_attempts(self):
+        self.admin.failed_login_attempts = 3
+        self.admin.locked_until = timezone.now() - timezone.timedelta(seconds=1)
+        self.admin.save(update_fields=["failed_login_attempts", "locked_until"])
+
+        response = self.post_json(
+            "/api/auth/login",
+            {"login": "admin", "password": "Admin@123"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.failed_login_attempts, 0)
+        self.assertIsNone(self.admin.locked_until)
+
+    def test_password_reset_unlocks_account(self):
+        code = "123456"
+        self.admin.email = "admin@icet.ufam.edu.br"
+        self.admin.failed_login_attempts = 3
+        self.admin.locked_until = timezone.now() + timezone.timedelta(minutes=15)
+        self.admin.save(update_fields=["email", "failed_login_attempts", "locked_until"])
+        PasswordReset.objects.create(
+            user=self.admin,
+            code_hash=make_password(code),
+            expires_at=timezone.now() + timezone.timedelta(minutes=15),
+        )
+
+        response = self.post_json(
+            "/api/auth/reset-password",
+            {
+                "email": "admin@ufam.edu.br",
+                "code": code,
+                "new_password": "NovaSenha@123",
+                "confirm_password": "NovaSenha@123",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.failed_login_attempts, 0)
+        self.assertIsNone(self.admin.locked_until)
+        self.assertTrue(check_password("NovaSenha@123", self.admin.password_hash))
+
+        login_response = self.post_json(
+            "/api/auth/login",
+            {"login": "admin", "password": "NovaSenha@123"},
+        )
+        self.assertEqual(login_response.status_code, 200)
 
     def test_request_uses_authenticated_users_registered_siape(self):
         requester = User.objects.create(

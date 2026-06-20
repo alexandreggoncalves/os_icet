@@ -62,6 +62,9 @@ Regras:
 - Usuario nao aprovado recebe `403`.
 - Usuario inativo recebe `403`.
 - Credencial invalida recebe `401`.
+- A terceira senha invalida bloqueia a conta por 15 minutos e recebe `423`.
+- Enquanto o bloqueio estiver ativo, novas tentativas recebem `423`, inclusive com a senha correta.
+- Login valido apos a expiracao limpa o contador de falhas.
 - Tokens expiram apos 8 horas.
 
 ### `POST /api/auth/register`
@@ -122,6 +125,8 @@ Request:
 ```
 
 A API envia o codigo somente para o e-mail institucional derivado `login@ufam.edu.br`.
+
+O pedido de redefinicao continua permitido para contas temporariamente bloqueadas.
 
 ### `POST /api/auth/reset-password`
 
@@ -309,6 +314,8 @@ As rotas abaixo exigem administrador.
 }
 ```
 
+Uma redefinicao concluida zera as tentativas invalidas e desbloqueia imediatamente a conta.
+
 ### `PUT /api/groups/{id}`
 
 ```json
@@ -392,6 +399,7 @@ Permite editar nome e prazo, desativar e reativar. Ao renomear, a categoria das 
 | --- | --- |
 | 401 | Usuario nao autenticado ou credenciais invalidas |
 | 403 | Usuario autenticado sem permissao |
+| 423 | Conta temporariamente bloqueada por tentativas invalidas |
 | 404 | Recurso nao encontrado |
 | 422 | Dados invalidos |
 | 500 | Erro interno |

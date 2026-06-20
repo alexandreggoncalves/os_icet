@@ -61,6 +61,15 @@ Regras minimas adicionais:
 - Pelo menos uma letra maiuscula.
 - Pelo menos um caractere especial.
 
+## Bloqueio temporario de login
+
+- Cada usuario possui `failed_login_attempts` e `locked_until` persistidos no banco.
+- A contagem e atualizada em transacao com bloqueio da linha do usuario.
+- Na terceira senha incorreta, `locked_until` recebe o horario atual mais 15 minutos.
+- Durante o bloqueio, o login retorna HTTP `423` sem validar uma nova senha.
+- Um login valido depois da expiracao limpa os campos de bloqueio.
+- O fluxo de recuperacao continua acessivel e a redefinicao valida desbloqueia a conta imediatamente.
+
 ## Tokens de sessao
 
 - Token aleatorio gerado com `secrets.token_urlsafe(32)`.

@@ -147,6 +147,8 @@ Usuarios autenticaveis do sistema.
 | `active` | `BooleanField` | Permite bloquear login |
 | `approval_status` | `CharField` | `pending` ou `approved` |
 | `first_login_required` | `BooleanField` | Obriga troca de senha provisoria |
+| `failed_login_attempts` | `PositiveSmallIntegerField` | Tentativas consecutivas de senha invalida |
+| `locked_until` | `DateTimeField` | Fim do bloqueio temporario de login |
 | `approved_at` | `DateTimeField` | Data da aprovacao |
 | `approved_by` | `ForeignKey` | Usuario administrador aprovador |
 | `created_at` | `DateTimeField` | Data de criacao |

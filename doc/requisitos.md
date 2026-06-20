@@ -39,6 +39,7 @@
 | RF33 | Permitir editar o SIAPE do usuario mantendo validacao e unicidade | Implementado |
 | RF34 | Permitir editar e desativar grupos, protegendo `Administradores` | Implementado |
 | RF35 | Permitir editar e desativar demandas sem exclusao | Implementado |
+| RF36 | Bloquear login por 15 minutos apos 3 senhas invalidas consecutivas | Implementado |
 
 ## Regras de negocio
 
@@ -52,6 +53,10 @@
 - Senhas sao validadas no backend.
 - Tokens expiram apos 8 horas.
 - Tokens expirados sao removidos durante a validacao de sessao.
+- Tres senhas incorretas consecutivas bloqueiam a conta por 15 minutos.
+- O bloqueio expira automaticamente e um login valido posterior zera o contador.
+- A recuperacao de senha permanece disponivel durante o bloqueio.
+- Uma redefinicao concluida desbloqueia imediatamente a conta e zera as tentativas invalidas.
 
 ### Cadastro institucional
 

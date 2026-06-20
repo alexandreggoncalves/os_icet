@@ -50,6 +50,10 @@ Regras:
 
 Na tela de login, informe usuario e senha.
 
+Apos 3 senhas incorretas consecutivas, a conta fica bloqueada por 15 minutos. O usuario pode aguardar o desbloqueio automatico ou usar `Esqueci minha senha` imediatamente.
+
+Quando a redefinicao de senha e concluida com codigo valido, o bloqueio e removido e o contador de tentativas e zerado.
+
 Depois da autenticacao, o item `Login` deixa de aparecer no menu superior; a sessao pode ser encerrada pelo botao com o nome do usuario.
 
 Depois de aprovado com senha provisoria, o sistema exige troca de senha no primeiro acesso.

@@ -28,6 +28,8 @@ class User(models.Model):
     active = models.BooleanField(default=True)
     approval_status = models.CharField(max_length=20, default="approved")
     first_login_required = models.BooleanField(default=False)
+    failed_login_attempts = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, db_column="approved_by")
     created_at = models.DateTimeField(default=timezone.now)
