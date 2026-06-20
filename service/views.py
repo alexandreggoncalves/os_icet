@@ -488,15 +488,11 @@ def requests_collection(request):
     if response:
         return response
     payload = read_json(request)
-    owner_user = None
-    if user.siape:
-        payload["siape"] = user.siape
-    if not is_admin(user):
-        payload["nome"] = user.nome
-        payload["siape"] = user.siape or ""
-        payload["email"] = user.email
-        payload["perfil"] = user.group.nome if user.group_id else payload.get("perfil", "")
-        owner_user = user
+    payload["nome"] = user.nome
+    payload["siape"] = user.siape or ""
+    payload["email"] = user.email
+    payload["perfil"] = user.group.nome if user.group_id else ""
+    owner_user = user
     required = ["nome", "siape", "email", "perfil", "bloco", "sala", "categoria", "descricao"]
     missing = [field for field in required if not str(payload.get(field, "")).strip()]
     if missing:

@@ -35,7 +35,7 @@
 | RF29 | Exibir data/hora e prazo estimado na lista de solicitacoes | Implementado |
 | RF30 | Permitir edicao de usuario pelo clique na linha | Implementado |
 | RF31 | Ocultar o item Login do menu durante sessao autenticada | Implementado |
-| RF32 | Preencher a solicitacao com o SIAPE cadastrado do usuario | Implementado |
+| RF32 | Preencher a solicitacao com os dados cadastrados do usuario, inclusive administradores | Implementado |
 | RF33 | Permitir editar o SIAPE do usuario mantendo validacao e unicidade | Implementado |
 | RF34 | Permitir editar e desativar grupos, protegendo `Administradores` | Implementado |
 | RF35 | Permitir editar e desativar demandas sem exclusao | Implementado |
@@ -62,9 +62,9 @@
 
 ### Solicitacoes
 
-- Usuarios comuns criam solicitacoes com os proprios dados cadastrais.
-- O SIAPE da solicitacao e obrigatorio, deve ter 7 digitos e, para usuario comum, sempre vem do banco.
-- Administradores podem criar solicitacao para terceiros.
+- Todos os usuarios, inclusive administradores, criam solicitacoes com os proprios dados cadastrais.
+- O SIAPE da solicitacao e obrigatorio, deve ter 7 digitos e sempre vem do banco.
+- A solicitacao fica vinculada ao usuario autenticado para permitir o acompanhamento e as interacoes proprias.
 - Toda solicitacao recebe protocolo `OS-ANO-NNNNN`.
 - Ao criar solicitacao pelo endpoint principal, o sistema registra interacao inicial.
 - Administradores visualizam todas as solicitacoes.

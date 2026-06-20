@@ -798,18 +798,14 @@ function RequestForm({
   user
 }) {
   const [form, setForm] = useState(emptyRequest);
-  const limitedUser = user && user.grupo_nome !== "Administradores";
   const registeredSiape = user?.siape || "";
   const hasRegisteredSiape = Boolean(registeredSiape);
-  const requestPayload = limitedUser ? {
+  const requestPayload = {
     ...form,
     nome: user.nome,
     siape: registeredSiape,
     email: user.email,
     perfil: user.grupo_nome
-  } : {
-    ...form,
-    siape: registeredSiape || form.siape
   };
   function update(field, value) {
     setForm(current => ({
@@ -832,41 +828,42 @@ function RequestForm({
     className: "h4 fw-bold"
   }, "Cadastrar solicitação de serviço"), /*#__PURE__*/React.createElement("p", {
     className: "text-muted"
-  }, "O chamado é gravado no SQLite local. Usuários docentes e técnicos consultam apenas as próprias solicitações."), /*#__PURE__*/React.createElement("div", {
+  }, "O chamado é gravado no PostgreSQL e vinculado à conta conectada."), /*#__PURE__*/React.createElement("div", {
     className: "alert alert-success"
-  }, "Todos os campos são obrigatórios para simular a regra do backlog.")), /*#__PURE__*/React.createElement("div", {
+  }, "Todos os campos são obrigatórios."), !hasRegisteredSiape && /*#__PURE__*/React.createElement("div", {
+    className: "alert alert-warning"
+  }, "Sua conta não possui SIAPE cadastrado. Solicite a regularização do cadastro antes de abrir um chamado.")), /*#__PURE__*/React.createElement("div", {
     className: "col-lg-7"
   }, /*#__PURE__*/React.createElement("form", {
     className: "row g-3",
     onSubmit: submit
   }, /*#__PURE__*/React.createElement(Input, {
     label: "Nome do solicitante",
-    value: limitedUser ? user.nome : form.nome,
-    onChange: v => update("nome", v),
-    disabled: limitedUser
+    value: user.nome,
+    onChange: () => {},
+    disabled: true
   }), /*#__PURE__*/React.createElement(Input, {
     label: "SIAPE",
-    value: hasRegisteredSiape ? registeredSiape : form.siape,
-    onChange: v => update("siape", v.replace(/\D/g, "").slice(0, 7)),
+    value: registeredSiape,
+    onChange: () => {},
     col: "col-sm-6",
-    disabled: hasRegisteredSiape,
+    disabled: true,
     inputMode: "numeric",
     maxLength: 7,
     pattern: "[0-9]{7}"
   }), /*#__PURE__*/React.createElement(Input, {
     label: "E-mail institucional",
     type: "email",
-    value: limitedUser ? user.email : form.email,
-    onChange: v => update("email", v),
+    value: user.email,
+    onChange: () => {},
     col: "col-sm-6",
-    disabled: limitedUser
-  }), /*#__PURE__*/React.createElement(Select, {
+    disabled: true
+  }), /*#__PURE__*/React.createElement(Input, {
     label: "Perfil",
-    value: limitedUser ? user.grupo_nome : form.perfil,
-    onChange: v => update("perfil", v),
-    options: ["Docente", "Docentes", "Técnico Administrativo em Educação", "Técnicos Administrativos"],
+    value: user.grupo_nome || "",
+    onChange: () => {},
     col: "col-sm-6",
-    disabled: limitedUser
+    disabled: true
   }), /*#__PURE__*/React.createElement(Select, {
     label: "Tipo de demanda",
     value: form.categoria,
@@ -890,7 +887,7 @@ function RequestForm({
   }), /*#__PURE__*/React.createElement("div", {
     className: "col-12 d-flex justify-content-end"
   }, /*#__PURE__*/React.createElement("button", {
-    disabled: loading,
+    disabled: loading || !hasRegisteredSiape,
     className: "btn btn-icet px-4"
   }, loading ? "Enviando..." : "Enviar solicitação"))))));
 }

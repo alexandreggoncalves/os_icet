@@ -195,9 +195,10 @@ Response `201`:
 
 Regras:
 
-- Usuario comum tem nome, SIAPE, e-mail e perfil derivados do proprio cadastro.
+- Todo usuario, inclusive administrador, tem nome, SIAPE, e-mail e perfil derivados do proprio cadastro.
 - SIAPE e obrigatorio e deve conter exatamente 7 digitos.
-- Para usuario comum, qualquer SIAPE enviado no corpo e substituido pelo valor persistido no usuario autenticado.
+- Qualquer dado pessoal enviado no corpo e substituido pelo valor persistido no usuario autenticado.
+- A solicitacao e vinculada ao usuario autenticado em `owner_user_id`.
 - Administrador pode registrar solicitacao em nome de terceiros.
 - O protocolo e gerado apos o insert, usando ano corrente e ID.
 

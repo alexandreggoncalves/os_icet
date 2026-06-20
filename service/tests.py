@@ -17,6 +17,7 @@ class UserRegistrationTests(TestCase):
             nome="Administrador",
             login="admin",
             email="admin@ufam.edu.br",
+            siape="1000001",
             password_hash=make_password("Admin@123"),
             group=self.admin_group,
             role="admin",
@@ -175,6 +176,30 @@ class UserRegistrationTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(ServiceRequest.objects.get().siape, "2468135")
+
+    def test_admin_request_uses_own_registered_data_and_ownership(self):
+        response = self.post_json(
+            "/api/requests",
+            {
+                "nome": "Outro solicitante",
+                "siape": "9999999",
+                "email": "outro@ufam.edu.br",
+                "perfil": "Outro grupo",
+                "bloco": "Bloco B",
+                "sala": "Sala 2",
+                "categoria": "Suporte Audiovisual",
+                "descricao": "Chamado aberto pelo administrador.",
+            },
+            authenticated=True,
+        )
+
+        self.assertEqual(response.status_code, 201)
+        item = ServiceRequest.objects.get()
+        self.assertEqual(item.owner_user, self.admin)
+        self.assertEqual(item.nome, self.admin.nome)
+        self.assertEqual(item.siape, self.admin.siape)
+        self.assertEqual(item.email, self.admin.email)
+        self.assertEqual(item.perfil, "Administradores")
 
     def test_admin_can_update_users_siape(self):
         user = User.objects.create(

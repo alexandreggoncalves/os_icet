@@ -87,11 +87,13 @@ Para usuarios comuns:
 - Nome, SIAPE, e-mail e perfil sao preenchidos a partir do cadastro.
 - O SIAPE e obrigatorio, possui 7 digitos e nao pode ser substituido no formulario.
 - O usuario informa tipo de demanda, bloco, sala e descricao.
+- A mesma regra vale para administradores: o chamado usa os dados da conta conectada e fica vinculado a ela.
+- Contas antigas sem SIAPE cadastrado devem ser regularizadas antes da abertura de chamados.
 
 Para administradores:
 
 - Os dados do solicitante podem ser preenchidos manualmente.
-- Quando a conta administrativa possui SIAPE cadastrado, o campo e preenchido pelo banco e bloqueado; contas legadas sem SIAPE devem informar 7 digitos.
+- Quando a conta administrativa possui SIAPE cadastrado, todos os dados pessoais sao preenchidos pelo banco e bloqueados. Contas legadas sem SIAPE nao podem abrir chamado ate a regularizacao do cadastro.
 
 Ao enviar, o sistema cria protocolo no formato:
 

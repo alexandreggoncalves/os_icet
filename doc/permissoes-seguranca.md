@@ -29,6 +29,8 @@
 
 Solicitacoes com status `Resolvido` ficam em modo somente leitura para todos os perfis.
 
+Toda solicitacao, inclusive a criada por administrador, usa os dados cadastrais e o SIAPE do usuario autenticado e fica vinculada a essa conta.
+
 ## Como o backend aplica permissoes
 
 Funcoes principais em `service/views.py`:
