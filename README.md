@@ -72,7 +72,8 @@ tecnico / Tecnico@1234
 - Alteração de status por administradores
 - Histórico de interações em formato de chat
 - Upload, listagem e exclusão de anexos
-- Gerenciamento de grupos, usuários e demandas
+- Gerenciamento de grupos, usuários e demandas com edição e ativação/desativação sem exclusão
+- Proteção do grupo `Administradores` contra edição e desativação
 - Login institucional com e-mail derivado automaticamente como `login@ufam.edu.br`
 - SIAPE obrigatorio com exatamente 7 digitos
 - Senha provisoria gerada pelo sistema para novos usuarios administrativos

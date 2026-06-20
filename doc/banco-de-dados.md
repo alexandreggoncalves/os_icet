@@ -126,6 +126,7 @@ Armazena grupos de acesso.
 | `id` | `BigAutoField` | Chave primaria |
 | `nome` | `CharField` | Unico |
 | `descricao` | `TextField` | Opcional |
+| `active` | `BooleanField` | Permite desativar sem excluir |
 | `created_at` | `DateTimeField` | Criado com `timezone.now` |
 
 ### `users`
@@ -159,6 +160,7 @@ Tipos de demandas disponiveis no formulario.
 | `id` | `BigAutoField` | Chave primaria |
 | `nome` | `CharField` | Unico |
 | `prazo` | `CharField` | Prazo estimado |
+| `active` | `BooleanField` | Controla disponibilidade em novas solicitacoes |
 | `created_at` | `DateTimeField` | Data de criacao |
 
 ### `requests`

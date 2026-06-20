@@ -90,6 +90,7 @@ def group_dict(group):
         "id": group.id,
         "nome": group.nome,
         "descricao": group.descricao,
+        "active": group.active,
         "created_at": format_dt(group.created_at),
     }
 
@@ -99,6 +100,7 @@ def demand_dict(demand):
         "id": demand.id,
         "nome": demand.nome,
         "prazo": demand.prazo,
+        "active": demand.active,
         "created_at": format_dt(demand.created_at),
     }
 
@@ -187,6 +189,10 @@ def is_admin(user):
     return bool(user and (user.role == "admin" or (user.group and user.group.nome == "Administradores")))
 
 
+def is_protected_admin_group(group):
+    return group.nome.strip().casefold() == "administradores"
+
+
 def is_primary_admin(user):
     return bool(user and (user.id == 1 or user.login == "admin"))
 
@@ -220,7 +226,8 @@ def require_user(request):
 
 def admin_payload(user):
     demand_items = list(Demand.objects.all())
-    demands = [demand_dict(item) for item in demand_items]
+    visible_demands = demand_items if is_admin(user) else [item for item in demand_items if item.active]
+    demands = [demand_dict(item) for item in visible_demands]
     demand_deadlines = {item.nome: item.prazo for item in demand_items}
     groups = [group_dict(item) for item in AccessGroup.objects.all()]
     users = [user_dict(item) for item in User.objects.select_related("group").order_by("-approval_status", "nome")]
@@ -296,7 +303,7 @@ def write_approval_email(user, temporary_password):
 @csrf_exempt
 @require_http_methods(["GET"])
 def public_bootstrap(request):
-    return api_response({"demands": [demand_dict(item) for item in Demand.objects.all()]})
+    return api_response({"demands": [demand_dict(item) for item in Demand.objects.filter(active=True)]})
 
 
 @csrf_exempt
@@ -677,6 +684,32 @@ def groups_collection(request):
 
 
 @csrf_exempt
+@require_http_methods(["PUT"])
+def update_group(request, group_id):
+    user, response = require_user(request)
+    if response:
+        return response
+    if not is_admin(user):
+        return api_response({"detail": "Seu grupo não tem permissão para atualizar grupos."}, 403)
+    item = AccessGroup.objects.filter(id=group_id).first()
+    if not item:
+        return api_response({"detail": "Grupo não encontrado."}, 404)
+    if is_protected_admin_group(item):
+        return api_response({"detail": "O grupo Administradores não pode ser editado ou desativado."}, 403)
+    payload = read_json(request)
+    item.nome = payload.get("nome", item.nome).strip()
+    item.descricao = payload.get("descricao", item.descricao).strip()
+    item.active = bool(payload.get("active", item.active))
+    if not item.nome:
+        return api_response({"detail": "Informe o nome do grupo."}, 422)
+    try:
+        item.save(update_fields=["nome", "descricao", "active"])
+    except IntegrityError:
+        return api_response({"detail": "Já existe um grupo com este nome."}, 422)
+    return api_response({"item": group_dict(item)})
+
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def users_collection(request):
     user, response = require_user(request)
@@ -698,7 +731,7 @@ def users_collection(request):
         return api_response({"detail": "Informe um login institucional válido, sem @ ou domínio."}, 422)
     if not valid_siape(siape):
         return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
-    if not AccessGroup.objects.filter(id=group_id).exists():
+    if not AccessGroup.objects.filter(id=group_id, active=True).exists():
         return api_response({"detail": "Grupo informado não encontrado."}, 422)
     if User.objects.filter(siape=siape).exists():
         return api_response({"detail": "Já existe cadastro com este SIAPE."}, 422)
@@ -751,17 +784,24 @@ def update_user(request, user_id):
     item.nome = payload.get("nome", item.nome).strip()
     item.login = normalize_institutional_login(payload.get("login", item.login))
     item.email = institutional_email(item.login)
+    item.siape = str(payload.get("siape", item.siape or "")).strip()
     try:
         item.group_id = int(payload.get("grupo_id", item.group_id or 0) or 0)
     except (TypeError, ValueError):
         return api_response({"detail": "Grupo informado não encontrado."}, 422)
     item.active = active
     if not item.nome or not valid_institutional_login(item.login) or not item.group_id:
-        return api_response({"detail": "Informe nome, login institucional válido e grupo."}, 422)
+        return api_response({"detail": "Informe nome, login institucional válido, SIAPE e grupo."}, 422)
+    if not valid_siape(item.siape):
+        return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
+    if not AccessGroup.objects.filter(id=item.group_id, active=True).exists():
+        return api_response({"detail": "Grupo informado não encontrado ou desativado."}, 422)
+    if User.objects.filter(siape=item.siape).exclude(id=item.id).exists():
+        return api_response({"detail": "Já existe cadastro com este SIAPE."}, 422)
     try:
-        item.save(update_fields=["nome", "login", "email", "group", "active"])
+        item.save(update_fields=["nome", "login", "email", "siape", "group", "active"])
     except IntegrityError:
-        return api_response({"detail": "Login ou e-mail já cadastrado para outro usuário."}, 422)
+        return api_response({"detail": "Login, e-mail ou SIAPE já cadastrado para outro usuário."}, 422)
     return api_response({"item": user_dict(User.objects.select_related("group").get(id=item.id))})
 
 
@@ -780,7 +820,7 @@ def approve_user(request, user_id):
         return api_response({"detail": "Este usuário não está pendente de aprovação."}, 422)
     payload = read_json(request)
     group_id = int(payload.get("grupo_id", 0) or item.group_id or group_id_for_cargo(item.cargo))
-    if not AccessGroup.objects.filter(id=group_id).exists():
+    if not AccessGroup.objects.filter(id=group_id, active=True).exists():
         return api_response({"detail": "Grupo informado não encontrado."}, 422)
     temporary_password = generate_temporary_password()
     item.group_id = group_id
@@ -810,3 +850,31 @@ def demands_collection(request):
     except (KeyError, IntegrityError) as error:
         return api_response({"detail": f"Dados inválidos: {error}"}, 422)
     return api_response({"item": demand_dict(item)}, 201)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def update_demand(request, demand_id):
+    user, response = require_user(request)
+    if response:
+        return response
+    if not is_admin(user):
+        return api_response({"detail": "Seu grupo não tem permissão para atualizar demandas."}, 403)
+    item = Demand.objects.filter(id=demand_id).first()
+    if not item:
+        return api_response({"detail": "Demanda não encontrada."}, 404)
+    payload = read_json(request)
+    old_name = item.nome
+    item.nome = payload.get("nome", item.nome).strip()
+    item.prazo = payload.get("prazo", item.prazo).strip()
+    item.active = bool(payload.get("active", item.active))
+    if not item.nome or not item.prazo:
+        return api_response({"detail": "Informe o nome e o prazo da demanda."}, 422)
+    try:
+        with transaction.atomic():
+            item.save(update_fields=["nome", "prazo", "active"])
+            if old_name != item.nome:
+                ServiceRequest.objects.filter(categoria=old_name).update(categoria=item.nome)
+    except IntegrityError:
+        return api_response({"detail": "Já existe uma demanda com este nome."}, 422)
+    return api_response({"item": demand_dict(item)})

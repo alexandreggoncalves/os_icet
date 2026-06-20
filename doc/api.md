@@ -308,6 +308,18 @@ As rotas abaixo exigem administrador.
 }
 ```
 
+### `PUT /api/groups/{id}`
+
+```json
+{
+  "nome": "Equipe de Infraestrutura",
+  "descricao": "Grupo atualizado.",
+  "active": false
+}
+```
+
+Permite editar, desativar e reativar grupos. O grupo `Administradores` retorna `403` e não pode ser alterado. Não existe endpoint de exclusão de grupos.
+
 Efeitos:
 
 - Deriva o e-mail `novo.usuario@ufam.edu.br`.
@@ -320,6 +332,7 @@ Efeitos:
 {
   "nome": "Novo Nome",
   "login": "novo.login",
+  "siape": "7654321",
   "grupo_id": 2,
   "active": true
 }
@@ -328,6 +341,8 @@ Efeitos:
 Regras:
 
 - Nao altera senha.
+- Permite corrigir o SIAPE, mantendo a regra de exatamente 7 digitos e unicidade.
+- Somente grupos ativos podem ser atribuidos.
 - Usuario principal `admin` nao pode ser editado nem desativado.
 - Usuario desativado nao autentica.
 
@@ -357,6 +372,18 @@ Efeitos:
   "prazo": "3 dias uteis"
 }
 ```
+
+### `PUT /api/demands/{id}`
+
+```json
+{
+  "nome": "Instalacao e Atualizacao de Software",
+  "prazo": "5 dias uteis",
+  "active": false
+}
+```
+
+Permite editar nome e prazo, desativar e reativar. Ao renomear, a categoria das solicitacoes historicas e atualizada. Demandas inativas não aparecem em novas solicitações. Não existe endpoint de exclusão de demandas.
 
 ## Erros comuns
 

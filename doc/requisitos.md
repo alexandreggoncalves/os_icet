@@ -36,6 +36,9 @@
 | RF30 | Permitir edicao de usuario pelo clique na linha | Implementado |
 | RF31 | Ocultar o item Login do menu durante sessao autenticada | Implementado |
 | RF32 | Preencher a solicitacao com o SIAPE cadastrado do usuario | Implementado |
+| RF33 | Permitir editar o SIAPE do usuario mantendo validacao e unicidade | Implementado |
+| RF34 | Permitir editar e desativar grupos, protegendo `Administradores` | Implementado |
+| RF35 | Permitir editar e desativar demandas sem exclusao | Implementado |
 
 ## Regras de negocio
 
@@ -98,6 +101,15 @@
 - Usuarios nao sao excluidos, para preservar historico.
 - O usuario principal `admin` nao pode ser editado nem desativado pelo gerenciamento.
 - Senha nao e alterada pela tela administrativa; use recuperacao de senha.
+
+### Gerenciamento de grupos e demandas
+
+- Grupos podem ter nome e descricao editados e podem ser desativados ou reativados.
+- O grupo `Administradores` nunca pode ser editado nem desativado.
+- Somente grupos ativos podem ser atribuidos a usuarios.
+- Demandas podem ter nome e prazo editados e podem ser desativadas ou reativadas.
+- Demandas inativas nao aparecem em novas solicitacoes, mas permanecem no historico.
+- Grupos e demandas nao possuem operacao de exclusao.
 
 ### Dados de demonstracao
 

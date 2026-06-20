@@ -23,10 +23,12 @@ urlpatterns = [
     path("api/interactions/<int:interaction_id>", views.edit_interaction),
     path("api/attachments/<int:attachment_id>", views.delete_attachment),
     path("api/groups", views.groups_collection),
+    path("api/groups/<int:group_id>", views.update_group),
     path("api/users", views.users_collection),
     path("api/users/<int:user_id>", views.update_user),
     path("api/users/<int:user_id>/approve", views.approve_user),
     path("api/demands", views.demands_collection),
+    path("api/demands/<int:demand_id>", views.update_demand),
     re_path(r"^(?P<path>(assets|vendor)/.*)$", serve, {"document_root": settings.BASE_DIR / "static"}),
 ]
 

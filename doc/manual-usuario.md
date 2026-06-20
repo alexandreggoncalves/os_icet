@@ -164,13 +164,17 @@ Restrito a administradores:
 - Usuarios.
 - Demandas.
 
-Usuarios nao sao excluidos. Use ativar/desativar para preservar historico.
+Usuarios, grupos e demandas nao sao excluidos. Use ativar/desativar para preservar historico.
 
 Ao cadastrar usuario, informe nome, login, SIAPE de 7 digitos e grupo. O sistema deriva o e-mail institucional, gera uma senha provisoria e grava o envio simulado em `dev_mailbox/`. O usuario deve definir a senha definitiva no primeiro acesso.
 
-Para editar, clique diretamente na linha do usuario. O botao separado serve apenas para ativar ou desativar.
+Para editar um usuario, clique diretamente na linha. Nome, login, SIAPE de 7 digitos e grupo podem ser atualizados. O botao separado serve apenas para ativar ou desativar.
 
 O usuario principal `admin` nao pode ser editado nem desativado pela tela administrativa.
+
+Para editar grupos e demandas, clique na linha correspondente. Grupos permitem alterar nome e descricao; demandas permitem alterar nome e prazo. O botao separado ativa ou desativa o item.
+
+O grupo `Administradores` e protegido: nao pode ser editado nem desativado. Grupos inativos nao podem ser atribuidos a usuarios, e demandas inativas nao aparecem no formulario de nova solicitacao.
 
 ## Relatorios
 

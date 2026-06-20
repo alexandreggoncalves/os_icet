@@ -39,12 +39,15 @@ Funcoes principais em `service/views.py`:
 | `require_user(request)` | Bloqueia endpoint sem autenticacao |
 | `is_admin(user)` | Identifica administradores por `role` ou grupo |
 | `is_primary_admin(user)` | Protege usuario principal `admin` |
+| `is_protected_admin_group(group)` | Impede edicao ou desativacao do grupo `Administradores` |
 | `can_access_request(user, item)` | Valida acesso a solicitacao |
 | `is_resolved_status(status)` | Detecta solicitacao resolvida |
 | `password_validation_error(password)` | Aplica politica minima de senha |
 | `is_ufam_email(email)` | Valida dominio institucional |
 | `valid_institutional_login(login)` | Valida o prefixo usado para derivar `login@ufam.edu.br` |
 | `valid_siape(siape)` | Exige exatamente 7 digitos numericos |
+
+Mesmo para administradores, o grupo `Administradores` e imutavel. Grupos e demandas nao possuem rota de exclusao; a preservacao do historico e feita por ativacao/desativacao.
 
 ## Senhas
 

@@ -5,6 +5,7 @@ from django.utils import timezone
 class AccessGroup(models.Model):
     nome = models.CharField(max_length=160, unique=True)
     descricao = models.TextField(blank=True, default="")
+    active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -42,6 +43,7 @@ class User(models.Model):
 class Demand(models.Model):
     nome = models.CharField(max_length=180, unique=True)
     prazo = models.CharField(max_length=120, default="2 dias úteis")
+    active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

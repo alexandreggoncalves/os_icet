@@ -340,6 +340,20 @@ function App() {
       return false;
     }
   }
+  async function updateEntity(path, itemId, payload, setter, message) {
+    try {
+      const data = await api(`${path}/${itemId}`, {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+      setter(current => current.map(item => item.id === itemId ? data.item : item));
+      notify(message, payload.active === false ? "warning" : "success");
+      return true;
+    } catch (error) {
+      notify(error.message, "danger");
+      return false;
+    }
+  }
   async function openRequest(id) {
     try {
       const data = await api(`/api/requests/${id}`);
@@ -497,7 +511,8 @@ function App() {
     setPage: setPage
   }, /*#__PURE__*/React.createElement(GroupManager, {
     groups: groups,
-    createGroup: payload => createEntity("/api/groups", payload, setGroups, "Grupo cadastrado.")
+    createGroup: payload => createEntity("/api/groups", payload, setGroups, "Grupo cadastrado."),
+    updateGroup: (id, payload) => updateEntity("/api/groups", id, payload, setGroups, "Grupo atualizado.")
   })), page === "gerenciamento-usuarios" && /*#__PURE__*/React.createElement(Protected, {
     authed: authed,
     allowed: permissions.can_manage,
@@ -513,7 +528,8 @@ function App() {
     setPage: setPage
   }, /*#__PURE__*/React.createElement(DemandManager, {
     demands: demands,
-    createDemand: payload => createEntity("/api/demands", payload, setDemands, "Demanda cadastrada.")
+    createDemand: payload => createEntity("/api/demands", payload, setDemands, "Demanda cadastrada."),
+    updateDemand: (id, payload) => updateEntity("/api/demands", id, payload, setDemands, "Demanda atualizada.")
   })), page === "gerenciamento" && /*#__PURE__*/React.createElement(Protected, {
     authed: authed,
     allowed: permissions.can_manage,
@@ -523,9 +539,11 @@ function App() {
     users: users,
     demands: demands,
     createGroup: payload => createEntity("/api/groups", payload, setGroups, "Grupo cadastrado."),
+    updateGroup: (id, payload) => updateEntity("/api/groups", id, payload, setGroups, "Grupo atualizado."),
     createUser: payload => createEntity("/api/users", payload, setUsers, "Usuário cadastrado."),
     updateUser: updateUser,
-    createDemand: payload => createEntity("/api/demands", payload, setDemands, "Demanda cadastrada.")
+    createDemand: payload => createEntity("/api/demands", payload, setDemands, "Demanda cadastrada."),
+    updateDemand: (id, payload) => updateEntity("/api/demands", id, payload, setDemands, "Demanda atualizada.")
   }))));
 }
 function Header({
@@ -853,7 +871,7 @@ function RequestForm({
     label: "Tipo de demanda",
     value: form.categoria,
     onChange: v => update("categoria", v),
-    options: demands.map(item => item.nome),
+    options: demands.filter(item => item.active !== false).map(item => item.nome),
     col: "col-sm-6"
   }), /*#__PURE__*/React.createElement(Input, {
     label: "Bloco da ocorrência",
@@ -1416,9 +1434,11 @@ function Management({
   users,
   demands,
   createGroup,
+  updateGroup,
   createUser,
   updateUser,
-  createDemand
+  createDemand,
+  updateDemand
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "row g-4"
@@ -1426,7 +1446,8 @@ function Management({
     className: "col-xl-4"
   }, /*#__PURE__*/React.createElement(GroupManager, {
     groups: groups,
-    createGroup: createGroup
+    createGroup: createGroup,
+    updateGroup: updateGroup
   })), /*#__PURE__*/React.createElement("div", {
     className: "col-xl-4"
   }, /*#__PURE__*/React.createElement(UserManager, {
@@ -1438,7 +1459,8 @@ function Management({
     className: "col-xl-4"
   }, /*#__PURE__*/React.createElement(DemandManager, {
     demands: demands,
-    createDemand: createDemand
+    createDemand: createDemand,
+    updateDemand: updateDemand
   })));
 }
 function PendingApprovals({
@@ -1446,6 +1468,7 @@ function PendingApprovals({
   groups,
   approveUser
 }) {
+  const activeGroups = groups.filter(group => group.active !== false);
   const [selectedId, setSelectedId] = useState(null);
   const selected = users.find(item => item.id === selectedId) || null;
   const [groupId, setGroupId] = useState("");
@@ -1456,7 +1479,7 @@ function PendingApprovals({
   }, [users, selectedId]);
   useEffect(() => {
     if (selected) {
-      const group = groups.find(item => item.nome === selected.grupo_nome) || groups[0];
+      const group = activeGroups.find(item => item.nome === selected.grupo_nome) || activeGroups[0];
       setGroupId(group ? String(group.id) : "");
     }
   }, [selected, groups]);
@@ -1537,7 +1560,7 @@ function PendingApprovals({
       label: "Grupo de acesso",
       value: String(groupId),
       onChange: setGroupId,
-      options: groups.map(group => ({
+      options: activeGroups.map(group => ({
         value: String(group.id),
         label: group.nome
       }))
@@ -1555,19 +1578,46 @@ function PendingApprovals({
 }
 function GroupManager({
   groups,
-  createGroup
+  createGroup,
+  updateGroup
 }) {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [editingGroup, setEditingGroup] = useState(null);
+  function resetForm() {
+    setEditingGroup(null);
+    setNome("");
+    setDescricao("");
+  }
+  function startEdit(group) {
+    if (group.nome.trim().toLowerCase() === "administradores") return;
+    setEditingGroup(group);
+    setNome(group.nome);
+    setDescricao(group.descricao || "");
+  }
   async function submit(event) {
     event.preventDefault();
-    if (await createGroup({
+    const payload = {
       nome,
       descricao
-    })) {
-      setNome("");
-      setDescricao("");
-    }
+    };
+    const ok = editingGroup ? await updateGroup(editingGroup.id, {
+      ...payload,
+      active: editingGroup.active !== false
+    }) : await createGroup(payload);
+    if (ok) resetForm();
+  }
+  async function toggleActive(group) {
+    if (group.nome.trim().toLowerCase() === "administradores") return;
+    const nextActive = group.active === false;
+    const action = nextActive ? "reativar" : "desativar";
+    if (!window.confirm(`Deseja ${action} o grupo ${group.nome}?`)) return;
+    const ok = await updateGroup(group.id, {
+      nome: group.nome,
+      descricao: group.descricao,
+      active: nextActive
+    });
+    if (ok && editingGroup?.id === group.id) resetForm();
   }
   return /*#__PURE__*/React.createElement("section", {
     className: "surface p-3 h-100"
@@ -1586,13 +1636,21 @@ function GroupManager({
     onChange: setDescricao,
     rows: "3"
   }), /*#__PURE__*/React.createElement("div", {
-    className: "col-12"
+    className: "col-12 d-flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
-    className: "btn btn-icet w-100"
-  }, "Cadastrar grupo"))), /*#__PURE__*/React.createElement(EntityList, {
+    className: "btn btn-icet flex-fill",
+    disabled: !nome.trim()
+  }, editingGroup ? "Salvar grupo" : "Cadastrar grupo"), editingGroup && /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-outline-icet",
+    type: "button",
+    onClick: resetForm
+  }, "Cancelar")))), /*#__PURE__*/React.createElement(ManagementEntityTable, {
     items: groups,
-    primary: "nome",
-    secondary: "descricao"
+    detailField: "descricao",
+    detailLabel: "Descrição",
+    startEdit: startEdit,
+    toggleActive: toggleActive,
+    protectedName: "Administradores"
   }));
 }
 function UserManager({
@@ -1601,11 +1659,12 @@ function UserManager({
   createUser,
   updateUser
 }) {
+  const activeGroups = groups.filter(group => group.active !== false);
   const [form, setForm] = useState({
     nome: "",
     login: "",
     siape: "",
-    grupo_id: groups[0]?.id || ""
+    grupo_id: activeGroups[0]?.id || ""
   });
   const [editingUser, setEditingUser] = useState(null);
   const [pageSize, setPageSize] = useState(10);
@@ -1615,9 +1674,9 @@ function UserManager({
   const start = (safePage - 1) * pageSize;
   const paginatedUsers = users.slice(start, start + pageSize);
   useEffect(() => {
-    if (!form.grupo_id && groups[0]) setForm(current => ({
+    if (!form.grupo_id && activeGroups[0]) setForm(current => ({
       ...current,
-      grupo_id: groups[0].id
+      grupo_id: activeGroups[0].id
     }));
   }, [groups]);
   useEffect(() => {
@@ -1630,7 +1689,7 @@ function UserManager({
     }));
   }
   function groupIdByName(name) {
-    return groups.find(group => group.nome === name)?.id || groups[0]?.id || "";
+    return activeGroups.find(group => group.nome === name)?.id || activeGroups[0]?.id || "";
   }
   function resetForm() {
     setEditingUser(null);
@@ -1638,7 +1697,7 @@ function UserManager({
       nome: "",
       login: "",
       siape: "",
-      grupo_id: groups[0]?.id || ""
+      grupo_id: activeGroups[0]?.id || ""
     });
   }
   function startEdit(user) {
@@ -1658,6 +1717,7 @@ function UserManager({
       const ok = await updateUser(editingUser.id, {
         nome: form.nome,
         login: form.login,
+        siape: form.siape,
         grupo_id: form.grupo_id,
         active: Boolean(editingUser.active)
       });
@@ -1675,13 +1735,14 @@ function UserManager({
     await updateUser(user.id, {
       nome: user.nome,
       login: user.login,
+      siape: user.siape,
       grupo_id: groupIdByName(user.grupo_nome),
       active: nextActive
     });
   }
   const validLogin = /^[a-z0-9._-]+$/i.test(form.login.trim());
   const validSiape = /^\d{7}$/.test(form.siape);
-  const canSubmit = Boolean(form.nome && validLogin && form.grupo_id && (editingUser || validSiape));
+  const canSubmit = Boolean(form.nome && validLogin && form.grupo_id && validSiape);
   return /*#__PURE__*/React.createElement("section", {
     className: "surface p-3 h-100"
   }, /*#__PURE__*/React.createElement("h2", {
@@ -1698,7 +1759,7 @@ function UserManager({
     value: form.login,
     onChange: v => update("login", v),
     col: "col-sm-6"
-  }), !editingUser && /*#__PURE__*/React.createElement(Input, {
+  }), /*#__PURE__*/React.createElement(Input, {
     label: "Número SIAPE",
     value: form.siape,
     onChange: v => update("siape", v.replace(/\D/g, "").slice(0, 7)),
@@ -1714,7 +1775,7 @@ function UserManager({
     label: "Grupo",
     value: String(form.grupo_id),
     onChange: v => update("grupo_id", v),
-    options: groups.map(item => ({
+    options: activeGroups.map(item => ({
       value: String(item.id),
       label: item.nome
     }))
@@ -1808,19 +1869,44 @@ function UsersTable({
 }
 function DemandManager({
   demands,
-  createDemand
+  createDemand,
+  updateDemand
 }) {
   const [nome, setNome] = useState("");
   const [prazo, setPrazo] = useState("2 dias úteis");
+  const [editingDemand, setEditingDemand] = useState(null);
+  function resetForm() {
+    setEditingDemand(null);
+    setNome("");
+    setPrazo("2 dias úteis");
+  }
+  function startEdit(demand) {
+    setEditingDemand(demand);
+    setNome(demand.nome);
+    setPrazo(demand.prazo);
+  }
   async function submit(event) {
     event.preventDefault();
-    if (await createDemand({
+    const payload = {
       nome,
       prazo
-    })) {
-      setNome("");
-      setPrazo("2 dias úteis");
-    }
+    };
+    const ok = editingDemand ? await updateDemand(editingDemand.id, {
+      ...payload,
+      active: editingDemand.active !== false
+    }) : await createDemand(payload);
+    if (ok) resetForm();
+  }
+  async function toggleActive(demand) {
+    const nextActive = demand.active === false;
+    const action = nextActive ? "reativar" : "desativar";
+    if (!window.confirm(`Deseja ${action} a demanda ${demand.nome}?`)) return;
+    const ok = await updateDemand(demand.id, {
+      nome: demand.nome,
+      prazo: demand.prazo,
+      active: nextActive
+    });
+    if (ok && editingDemand?.id === demand.id) resetForm();
   }
   return /*#__PURE__*/React.createElement("section", {
     className: "surface p-3 h-100"
@@ -1838,28 +1924,63 @@ function DemandManager({
     value: prazo,
     onChange: setPrazo
   }), /*#__PURE__*/React.createElement("div", {
-    className: "col-12"
+    className: "col-12 d-flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
-    className: "btn btn-icet w-100"
-  }, "Cadastrar demanda"))), /*#__PURE__*/React.createElement(EntityList, {
+    className: "btn btn-icet flex-fill",
+    disabled: !nome.trim() || !prazo.trim()
+  }, editingDemand ? "Salvar demanda" : "Cadastrar demanda"), editingDemand && /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-outline-icet",
+    type: "button",
+    onClick: resetForm
+  }, "Cancelar")))), /*#__PURE__*/React.createElement(ManagementEntityTable, {
     items: demands,
-    primary: "nome",
-    secondary: "prazo"
+    detailField: "prazo",
+    detailLabel: "Prazo",
+    startEdit: startEdit,
+    toggleActive: toggleActive
   }));
 }
-function EntityList({
+function ManagementEntityTable({
   items,
-  primary,
-  secondary
+  detailField,
+  detailLabel,
+  startEdit,
+  toggleActive,
+  protectedName
 }) {
   return /*#__PURE__*/React.createElement("div", {
-    className: "entity-list"
-  }, items.map(item => /*#__PURE__*/React.createElement("div", {
-    className: "request-card p-2 mb-2",
-    key: `${primary}-${item.id}`
-  }, /*#__PURE__*/React.createElement("strong", null, item[primary]), /*#__PURE__*/React.createElement("small", {
-    className: "d-block text-muted"
-  }, item[secondary] || "Sem detalhe"))));
+    className: "table-responsive"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "table align-middle management-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Nome"), /*#__PURE__*/React.createElement("th", null, detailLabel), /*#__PURE__*/React.createElement("th", null, "Status"), /*#__PURE__*/React.createElement("th", null, "Ação"))), /*#__PURE__*/React.createElement("tbody", null, items.map(item => {
+    const protectedItem = protectedName && item.nome.trim().toLowerCase() === protectedName.toLowerCase();
+    const active = item.active !== false;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: item.id,
+      className: `${!active ? "inactive-row " : ""}${!protectedItem ? "clickable-row" : ""}`.trim(),
+      onClick: !protectedItem ? () => startEdit(item) : undefined,
+      onKeyDown: !protectedItem ? event => {
+        if (event.currentTarget === event.target && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          startEdit(item);
+        }
+      } : undefined,
+      tabIndex: !protectedItem ? 0 : undefined,
+      title: !protectedItem ? "Clique para editar" : "Grupo protegido"
+    }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("strong", null, item.nome)), /*#__PURE__*/React.createElement("td", null, item[detailField] || "-"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+      className: `badge rounded-pill ${active ? "text-bg-success" : "text-bg-secondary"}`
+    }, active ? "Ativo" : "Inativo"), protectedItem && /*#__PURE__*/React.createElement("small", {
+      className: "d-block text-muted mt-1"
+    }, "Protegido")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+      className: `btn btn-sm ${active ? "btn-outline-warning" : "btn-outline-success"}`,
+      type: "button",
+      disabled: protectedItem,
+      onClick: event => {
+        event.stopPropagation();
+        toggleActive(item);
+      }
+    }, active ? "Desativar" : "Reativar")));
+  }))));
 }
 function StatusBadge({
   status
