@@ -1644,7 +1644,7 @@ function GroupManager({
     className: "btn btn-outline-icet",
     type: "button",
     onClick: resetForm
-  }, "Cancelar")))), /*#__PURE__*/React.createElement(ManagementEntityTable, {
+  }, "Cancelar"))), /*#__PURE__*/React.createElement(ManagementEntityTable, {
     items: groups,
     detailField: "descricao",
     detailLabel: "Descrição",
@@ -1932,7 +1932,7 @@ function DemandManager({
     className: "btn btn-outline-icet",
     type: "button",
     onClick: resetForm
-  }, "Cancelar")))), /*#__PURE__*/React.createElement(ManagementEntityTable, {
+  }, "Cancelar"))), /*#__PURE__*/React.createElement(ManagementEntityTable, {
     items: demands,
     detailField: "prazo",
     detailLabel: "Prazo",

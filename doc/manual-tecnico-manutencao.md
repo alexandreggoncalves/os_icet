@@ -188,7 +188,10 @@ Execute:
 python manage.py check
 python manage.py migrate
 python manage.py test service
+node --check static/app.compiled.js
 ```
+
+A verificacao de sintaxe do JavaScript e obrigatoria ao alterar `static/app.compiled.js`: um erro nesse arquivo impede a inicializacao do React e deixa a aplicacao em branco.
 
 Validar manualmente:
 
@@ -209,6 +212,7 @@ Validar manualmente:
 15. SIAPE com exatamente 7 digitos nos dois cadastros.
 16. Edicao de usuario pelo clique na linha.
 17. Data/hora e prazo estimado na lista de solicitacoes.
+18. Carregamento inicial do frontend sem erros de sintaxe JavaScript.
 
 ## 13. Como trabalhar no Git
 
