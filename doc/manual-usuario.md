@@ -50,6 +50,8 @@ Regras:
 
 Na tela de login, informe usuario e senha.
 
+Depois da autenticacao, o item `Login` deixa de aparecer no menu superior; a sessao pode ser encerrada pelo botao com o nome do usuario.
+
 Depois de aprovado com senha provisoria, o sistema exige troca de senha no primeiro acesso.
 
 Regras da nova senha:
@@ -83,11 +85,13 @@ Usuarios autenticados podem abrir solicitacoes.
 Para usuarios comuns:
 
 - Nome, SIAPE, e-mail e perfil sao preenchidos a partir do cadastro.
+- O SIAPE e obrigatorio, possui 7 digitos e nao pode ser substituido no formulario.
 - O usuario informa tipo de demanda, bloco, sala e descricao.
 
 Para administradores:
 
 - Os dados do solicitante podem ser preenchidos manualmente.
+- Quando a conta administrativa possui SIAPE cadastrado, o campo e preenchido pelo banco e bloqueado; contas legadas sem SIAPE devem informar 7 digitos.
 
 Ao enviar, o sistema cria protocolo no formato:
 

@@ -482,9 +482,11 @@ def requests_collection(request):
         return response
     payload = read_json(request)
     owner_user = None
+    if user.siape:
+        payload["siape"] = user.siape
     if not is_admin(user):
         payload["nome"] = user.nome
-        payload["siape"] = user.siape or payload.get("siape", "")
+        payload["siape"] = user.siape or ""
         payload["email"] = user.email
         payload["perfil"] = user.group.nome if user.group_id else payload.get("perfil", "")
         owner_user = user
@@ -492,6 +494,8 @@ def requests_collection(request):
     missing = [field for field in required if not str(payload.get(field, "")).strip()]
     if missing:
         return api_response({"detail": f"Campos obrigatórios ausentes: {', '.join(missing)}"}, 422)
+    if not valid_siape(payload["siape"]):
+        return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
     with transaction.atomic():
         item = create_request_record(payload, owner_user)
         Interaction.objects.create(

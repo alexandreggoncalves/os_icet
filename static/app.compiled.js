@@ -537,7 +537,7 @@ function Header({
   pendingCount = 0
 }) {
   const isAdmin = user?.role === "admin" || user?.grupo_nome === "Administradores";
-  const visiblePages = pages.filter(item => !item.hidden && !item.management && !item.reports && (item.public || authed && (!item.adminOnly || isAdmin)));
+  const visiblePages = pages.filter(item => !item.hidden && !item.management && !item.reports && (!authed || item.id !== "login") && (item.public || authed && (!item.adminOnly || isAdmin)));
   const reportPages = pages.filter(item => item.reports && authed && isAdmin);
   const managementPages = pages.filter(item => item.management && authed && isAdmin);
   const reportsActive = reportPages.some(item => item.id === page);
@@ -630,7 +630,7 @@ function MobileNav({
   authed,
   permissions
 }) {
-  const visiblePages = pages.filter(item => !item.hidden && (item.public || authed && (!item.adminOnly || permissions.admin)));
+  const visiblePages = pages.filter(item => !item.hidden && (!authed || item.id !== "login") && (item.public || authed && (!item.adminOnly || permissions.admin)));
   return /*#__PURE__*/React.createElement("div", {
     className: "mobile-page-select mb-3"
   }, /*#__PURE__*/React.createElement("label", {
@@ -781,14 +781,18 @@ function RequestForm({
 }) {
   const [form, setForm] = useState(emptyRequest);
   const limitedUser = user && user.grupo_nome !== "Administradores";
-  const hasRegisteredSiape = limitedUser && user.siape;
+  const registeredSiape = user?.siape || "";
+  const hasRegisteredSiape = Boolean(registeredSiape);
   const requestPayload = limitedUser ? {
     ...form,
     nome: user.nome,
-    siape: user.siape || form.siape,
+    siape: registeredSiape,
     email: user.email,
     perfil: user.grupo_nome
-  } : form;
+  } : {
+    ...form,
+    siape: registeredSiape || form.siape
+  };
   function update(field, value) {
     setForm(current => ({
       ...current,
@@ -824,10 +828,13 @@ function RequestForm({
     disabled: limitedUser
   }), /*#__PURE__*/React.createElement(Input, {
     label: "SIAPE",
-    value: hasRegisteredSiape ? user.siape : form.siape,
-    onChange: v => update("siape", v),
+    value: hasRegisteredSiape ? registeredSiape : form.siape,
+    onChange: v => update("siape", v.replace(/\D/g, "").slice(0, 7)),
     col: "col-sm-6",
-    disabled: Boolean(hasRegisteredSiape)
+    disabled: hasRegisteredSiape,
+    inputMode: "numeric",
+    maxLength: 7,
+    pattern: "[0-9]{7}"
   }), /*#__PURE__*/React.createElement(Input, {
     label: "E-mail institucional",
     type: "email",

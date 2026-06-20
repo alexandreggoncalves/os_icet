@@ -34,6 +34,8 @@
 | RF28 | Gerar senha provisoria no cadastro administrativo de usuario | Implementado |
 | RF29 | Exibir data/hora e prazo estimado na lista de solicitacoes | Implementado |
 | RF30 | Permitir edicao de usuario pelo clique na linha | Implementado |
+| RF31 | Ocultar o item Login do menu durante sessao autenticada | Implementado |
+| RF32 | Preencher a solicitacao com o SIAPE cadastrado do usuario | Implementado |
 
 ## Regras de negocio
 
@@ -58,6 +60,7 @@
 ### Solicitacoes
 
 - Usuarios comuns criam solicitacoes com os proprios dados cadastrais.
+- O SIAPE da solicitacao e obrigatorio, deve ter 7 digitos e, para usuario comum, sempre vem do banco.
 - Administradores podem criar solicitacao para terceiros.
 - Toda solicitacao recebe protocolo `OS-ANO-NNNNN`.
 - Ao criar solicitacao pelo endpoint principal, o sistema registra interacao inicial.

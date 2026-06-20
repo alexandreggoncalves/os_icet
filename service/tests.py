@@ -6,7 +6,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.test import TestCase
 from django.utils import timezone
 
-from service.models import AccessGroup, PasswordReset, SessionToken, User
+from service.models import AccessGroup, PasswordReset, ServiceRequest, SessionToken, User
 
 
 class UserRegistrationTests(TestCase):
@@ -133,3 +133,37 @@ class UserRegistrationTests(TestCase):
             {"email": "admin@example.com"},
         )
         self.assertEqual(external_response.status_code, 422)
+
+    def test_request_uses_authenticated_users_registered_siape(self):
+        requester = User.objects.create(
+            nome="Solicitante Teste",
+            login="solicitante.teste",
+            email="solicitante.teste@ufam.edu.br",
+            siape="2468135",
+            password_hash=make_password("Solicitante@123"),
+            group=self.docente_group,
+            role="user",
+        )
+        SessionToken.objects.create(
+            token="requester-token",
+            user=requester,
+            expires_at=timezone.now() + timezone.timedelta(hours=1),
+        )
+
+        response = self.client.post(
+            "/api/requests",
+            data=json.dumps(
+                {
+                    "siape": "9999999",
+                    "bloco": "Bloco A",
+                    "sala": "Sala 1",
+                    "categoria": "Suporte Audiovisual",
+                    "descricao": "Teste de SIAPE cadastrado.",
+                }
+            ),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer requester-token",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(ServiceRequest.objects.get().siape, "2468135")
