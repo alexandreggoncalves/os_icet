@@ -47,6 +47,12 @@ python manage.py runserver 127.0.0.1:8000
 
 No Windows, se `createdb` não estiver no PATH, crie o banco `os_icet` pelo pgAdmin ou pelo terminal do PostgreSQL.
 
+No Windows, depois de criar `.venv` e instalar as dependencias, tambem e possivel iniciar com:
+
+```bat
+run-local.cmd
+```
+
 ## Usuários de teste
 
 ```text
@@ -67,4 +73,9 @@ tecnico / Tecnico@1234
 - Histórico de interações em formato de chat
 - Upload, listagem e exclusão de anexos
 - Gerenciamento de grupos, usuários e demandas
+- Login institucional com e-mail derivado automaticamente como `login@ufam.edu.br`
+- SIAPE obrigatorio com exatamente 7 digitos
+- Senha provisoria gerada pelo sistema para novos usuarios administrativos
+- Lista de solicitacoes com data/hora e prazo estimado da demanda
+- Edicao de usuario pelo clique na linha da tabela
 - Relatórios e exportação CSV pelo frontend preservado

@@ -31,8 +31,9 @@ sequenceDiagram
     participant A as Administrador
     participant M as dev_mailbox
 
-    U->>F: preenche primeiro acesso
+    U->>F: informa nome, login, SIAPE e cargo
     F->>D: POST /api/auth/register
+    D->>D: deriva login@ufam.edu.br e valida SIAPE de 7 digitos
     D->>DB: cria usuario pending/inativo
     A->>F: acessa pendencias
     F->>D: GET /api/admin/bootstrap
@@ -133,8 +134,9 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant M as dev_mailbox/
 
-    U->>F: informa e-mail
+    U->>F: informa login institucional
     F->>D: POST /api/auth/forgot-password
+    D->>D: deriva login@ufam.edu.br
     D->>DB: salva hash do codigo e expiracao
     D->>M: grava arquivo com codigo
     U->>F: informa codigo e nova senha

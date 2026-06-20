@@ -28,6 +28,7 @@ flowchart LR
 | `service/migrations/` | Evolucao do banco | Gerado por `makemigrations` |
 | `service/management/commands/seed_data.py` | Seed inicial | Dados padrao |
 | `service/management/commands/seed_demo_data.py` | Seed de demonstracao | Massa de apresentacao |
+| `service/tests.py` | Testes de regressao | Regras de cadastro, SIAPE, senha provisoria e recuperacao |
 | `templates/index.html` | HTML base | Ordem de scripts e assets |
 | `static/app.compiled.js` | Frontend React compilado | Alteracoes de interface |
 | `static/styles.css` | Estilos | Visual e responsividade |
@@ -186,6 +187,7 @@ Execute:
 ```bash
 python manage.py check
 python manage.py migrate
+python manage.py test service
 ```
 
 Validar manualmente:
@@ -202,6 +204,11 @@ Validar manualmente:
 10. Bloqueio em solicitacao resolvida.
 11. Gerenciamento administrativo.
 12. Relatorios.
+13. Cadastro administrativo com senha provisoria automatica.
+14. Recuperacao informando somente o login institucional.
+15. SIAPE com exatamente 7 digitos nos dois cadastros.
+16. Edicao de usuario pelo clique na linha.
+17. Data/hora e prazo estimado na lista de solicitacoes.
 
 ## 13. Como trabalhar no Git
 
@@ -221,6 +228,7 @@ Antes de commitar:
 - Nao adicionar `uploads/`.
 - Nao adicionar `dev_mailbox/`.
 - Nao adicionar `staticfiles/`.
+- Nao adicionar `runserver*.log` ou `runserver.exitcode`.
 - Conferir `git diff`.
 - Atualizar `doc/` quando houver mudanca funcional.
 

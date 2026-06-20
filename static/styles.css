@@ -295,6 +295,16 @@ body {
   --bs-table-bg: transparent;
 }
 
+.request-date-cell {
+  min-width: 150px;
+  white-space: nowrap;
+}
+
+.request-date-cell small {
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
 .mobile-page-select {
   display: none;
 }
@@ -332,6 +342,11 @@ body {
 
 .clickable-row:hover {
   background: #eefbf2;
+}
+
+.clickable-row:focus-visible {
+  outline: 2px solid var(--icet-green);
+  outline-offset: -2px;
 }
 
 .chat-thread {

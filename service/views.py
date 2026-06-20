@@ -42,11 +42,11 @@ def format_dt(value):
 def password_validation_error(password):
     special_chars = set("!@#$%^&*()-_=+[]{};:,.?/\\|`~'\"<>")
     if len(password or "") < 8:
-        return "A nova senha deve ter pelo menos 8 caracteres."
+        return "A senha deve ter pelo menos 8 caracteres."
     if not any(char.isupper() for char in password):
-        return "A nova senha deve conter pelo menos uma letra maiúscula."
+        return "A senha deve conter pelo menos uma letra maiúscula."
     if not any(char in special_chars for char in password):
-        return "A nova senha deve conter pelo menos um caractere especial."
+        return "A senha deve conter pelo menos um caractere especial."
     return ""
 
 
@@ -56,6 +56,22 @@ def is_ufam_email(email):
 
 def login_from_email(email):
     return str(email).split("@", 1)[0].lower().strip()
+
+
+def normalize_institutional_login(login):
+    return str(login or "").split("@", 1)[0].lower().strip()
+
+
+def institutional_email(login):
+    return f"{normalize_institutional_login(login)}@ufam.edu.br"
+
+
+def valid_institutional_login(login):
+    return bool(re.fullmatch(r"[a-z0-9._-]+", normalize_institutional_login(login), re.IGNORECASE))
+
+
+def valid_siape(siape):
+    return bool(re.fullmatch(r"\d{7}", str(siape or "")))
 
 
 def group_id_for_cargo(cargo):
@@ -108,7 +124,11 @@ def user_dict(user):
     }
 
 
-def request_dict(item):
+def request_dict(item, demand_deadlines=None):
+    if demand_deadlines is None:
+        estimated_deadline = Demand.objects.filter(nome=item.categoria).values_list("prazo", flat=True).first()
+    else:
+        estimated_deadline = demand_deadlines.get(item.categoria)
     return {
         "id": item.id,
         "protocolo": item.protocolo,
@@ -120,6 +140,7 @@ def request_dict(item):
         "bloco": item.bloco,
         "sala": item.sala,
         "categoria": item.categoria,
+        "prazo_estimado": estimated_deadline or "Não informado",
         "descricao": item.descricao,
         "status": item.status,
         "created_at": format_dt(item.created_at),
@@ -198,13 +219,18 @@ def require_user(request):
 
 
 def admin_payload(user):
-    demands = [demand_dict(item) for item in Demand.objects.all()]
+    demand_items = list(Demand.objects.all())
+    demands = [demand_dict(item) for item in demand_items]
+    demand_deadlines = {item.nome: item.prazo for item in demand_items}
     groups = [group_dict(item) for item in AccessGroup.objects.all()]
     users = [user_dict(item) for item in User.objects.select_related("group").order_by("-approval_status", "nome")]
     if is_admin(user):
-        requests = [request_dict(item) for item in ServiceRequest.objects.all()]
+        requests = [request_dict(item, demand_deadlines) for item in ServiceRequest.objects.all()]
     else:
-        requests = [request_dict(item) for item in ServiceRequest.objects.filter(owner_user=user) | ServiceRequest.objects.filter(email=user.email)]
+        requests = [
+            request_dict(item, demand_deadlines)
+            for item in ServiceRequest.objects.filter(owner_user=user) | ServiceRequest.objects.filter(email=user.email)
+        ]
         groups = []
         users = []
     return {
@@ -314,16 +340,16 @@ def login(request):
 def register_user(request):
     payload = read_json(request)
     nome = payload.get("nome", "").strip()
-    email = payload.get("email", "").strip().lower()
+    login_value = normalize_institutional_login(payload.get("login") or login_from_email(payload.get("email", "")))
+    email = institutional_email(login_value)
     siape = payload.get("siape", "").strip()
     cargo = payload.get("cargo", "").strip()
-    if not nome or not email or not siape or not cargo:
-        return api_response({"detail": "Informe nome, e-mail institucional, SIAPE e cargo."}, 422)
-    if not is_ufam_email(email):
-        return api_response({"detail": "Use um e-mail institucional no formato @ufam.edu.br."}, 422)
-    if not re.match(r"^\d{4,}$", siape):
-        return api_response({"detail": "Informe um número SIAPE válido."}, 422)
-    login_value = login_from_email(email)
+    if not nome or not login_value or not siape or not cargo:
+        return api_response({"detail": "Informe nome, login institucional, SIAPE e cargo."}, 422)
+    if not valid_institutional_login(login_value):
+        return api_response({"detail": "Informe um login institucional válido, sem @ ou domínio."}, 422)
+    if not valid_siape(siape):
+        return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
     duplicate = User.objects.filter(email__iexact=email).first() or User.objects.filter(login__iexact=login_value).first() or User.objects.filter(siape=siape).first()
     if duplicate:
         if duplicate.siape == siape:
@@ -381,9 +407,13 @@ def complete_first_access(request):
 @require_http_methods(["POST"])
 def forgot_password(request):
     payload = read_json(request)
-    email = payload.get("email", "").strip().lower()
-    if not email:
-        return api_response({"detail": "Informe o e-mail cadastrado."}, 422)
+    login_value = normalize_institutional_login(payload.get("login"))
+    fallback_email = payload.get("email", "").strip().lower()
+    if not login_value and is_ufam_email(fallback_email):
+        login_value = login_from_email(fallback_email)
+    if not valid_institutional_login(login_value):
+        return api_response({"detail": "Informe um login institucional válido, sem @ ou domínio."}, 422)
+    email = institutional_email(login_value)
     user = User.objects.filter(email__iexact=email).first()
     if user:
         code = f"{secrets.randbelow(1000000):06d}"
@@ -407,6 +437,8 @@ def reset_password(request):
     confirm_password = payload.get("confirm_password", "")
     if not email or not code or not new_password:
         return api_response({"detail": "Informe e-mail, código e nova senha."}, 422)
+    if not is_ufam_email(email):
+        return api_response({"detail": "Use um e-mail institucional @ufam.edu.br."}, 422)
     if new_password != confirm_password:
         return api_response({"detail": "A confirmação da senha não confere."}, 422)
     validation_error = password_validation_error(new_password)
@@ -649,18 +681,50 @@ def users_collection(request):
     if not is_admin(user):
         return api_response({"detail": "Seu grupo não tem permissão para cadastrar usuários."}, 403)
     payload = read_json(request)
+    nome = payload.get("nome", "").strip()
+    login_value = normalize_institutional_login(payload.get("login"))
+    siape = str(payload.get("siape", "")).strip()
+    try:
+        group_id = int(payload.get("grupo_id", 0) or 0)
+    except (TypeError, ValueError):
+        return api_response({"detail": "Grupo informado não encontrado."}, 422)
+    if not nome or not login_value or not siape or not group_id:
+        return api_response({"detail": "Informe nome, login, SIAPE e grupo."}, 422)
+    if not valid_institutional_login(login_value):
+        return api_response({"detail": "Informe um login institucional válido, sem @ ou domínio."}, 422)
+    if not valid_siape(siape):
+        return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
+    if not AccessGroup.objects.filter(id=group_id).exists():
+        return api_response({"detail": "Grupo informado não encontrado."}, 422)
+    if User.objects.filter(siape=siape).exists():
+        return api_response({"detail": "Já existe cadastro com este SIAPE."}, 422)
+    temporary_password = generate_temporary_password()
     try:
         item = User.objects.create(
-            nome=payload["nome"].strip(),
-            login=payload["login"].strip(),
-            email=payload["email"].strip(),
-            password_hash=make_password(payload["senha"]),
-            group_id=int(payload["grupo_id"]),
+            nome=nome,
+            login=login_value,
+            email=institutional_email(login_value),
+            siape=siape,
+            password_hash=make_password(temporary_password),
+            group_id=group_id,
             role="user",
+            active=True,
+            approval_status="approved",
+            first_login_required=True,
+            approved_at=timezone.now(),
+            approved_by=user,
         )
-    except (KeyError, IntegrityError, ValueError) as error:
-        return api_response({"detail": f"Dados inválidos: {error}"}, 422)
-    return api_response({"item": user_dict(User.objects.select_related("group").get(id=item.id))}, 201)
+    except IntegrityError:
+        return api_response({"detail": "Login ou e-mail já cadastrado para outro usuário."}, 422)
+    item = User.objects.select_related("group").get(id=item.id)
+    write_approval_email(item, temporary_password)
+    return api_response(
+        {
+            "item": user_dict(item),
+            "mensagem": "Usuário cadastrado. Senha provisória enviada pelo e-mail simulado.",
+        },
+        201,
+    )
 
 
 @csrf_exempt
@@ -681,12 +745,15 @@ def update_user(request, user_id):
     if item.id == acting_user.id and not active:
         return api_response({"detail": "Você não pode desativar o próprio usuário em uso."}, 403)
     item.nome = payload.get("nome", item.nome).strip()
-    item.login = payload.get("login", item.login).strip()
-    item.email = payload.get("email", item.email).strip()
-    item.group_id = int(payload.get("grupo_id", item.group_id or 0) or 0)
+    item.login = normalize_institutional_login(payload.get("login", item.login))
+    item.email = institutional_email(item.login)
+    try:
+        item.group_id = int(payload.get("grupo_id", item.group_id or 0) or 0)
+    except (TypeError, ValueError):
+        return api_response({"detail": "Grupo informado não encontrado."}, 422)
     item.active = active
-    if not item.nome or not item.login or not item.email or not item.group_id:
-        return api_response({"detail": "Informe nome, login, e-mail e grupo."}, 422)
+    if not item.nome or not valid_institutional_login(item.login) or not item.group_id:
+        return api_response({"detail": "Informe nome, login institucional válido e grupo."}, 422)
     try:
         item.save(update_fields=["nome", "login", "email", "group", "active"])
     except IntegrityError:

@@ -131,8 +131,9 @@ function App() {
       setDemands(publicData.demands || []);
       if (token) {
         const data = await api("/api/admin/bootstrap");
+        const requestDemands = data.demands || publicData.demands || [];
         setUser(data.user);
-        setRequests(data.requests || []);
+        setRequests((data.requests || []).map(item => attachEstimatedDeadline(item, requestDemands)));
         setGroups(data.groups || []);
         setUsers(data.users || []);
         setDemands(data.demands || []);
@@ -175,13 +176,13 @@ function App() {
       setLoading(false);
     }
   }
-  async function requestPasswordReset(email) {
+  async function requestPasswordReset(login) {
     setLoading(true);
     try {
       const data = await api("/api/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({
-          email
+          login
         })
       });
       notify(`${data.mensagem} ${data.ambiente_local || ""}`, "warning");
@@ -224,7 +225,7 @@ function App() {
         method: "POST",
         body: JSON.stringify(payload)
       });
-      setRequests(current => [data.request, ...current]);
+      setRequests(current => [attachEstimatedDeadline(data.request, demands), ...current]);
       setSelectedRequest(data.request);
       setPage("consultas");
       setTimeout(scrollToRequestDetail, 100);
@@ -248,7 +249,7 @@ function App() {
         method: "PUT",
         body: JSON.stringify(payload)
       });
-      setRequests(current => current.map(item => item.id === id ? data.request : item));
+      setRequests(current => current.map(item => item.id === id ? attachEstimatedDeadline(data.request, demands) : item));
       setSelectedRequest(current => current?.id === id ? {
         ...current,
         ...data.request
@@ -267,7 +268,7 @@ function App() {
         body: JSON.stringify(payload)
       });
       setter(current => [data.item, ...current]);
-      notify(message, "success");
+      notify(data.mensagem || message, "success");
       return true;
     } catch (error) {
       notify(error.message, "danger");
@@ -879,6 +880,7 @@ function Login({
   const [mode, setMode] = useState("login");
   const [login, setLogin] = useState("admin");
   const [password, setPassword] = useState("admin1234");
+  const [forgotLogin, setForgotLogin] = useState("");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -886,7 +888,7 @@ function Login({
   const [resetSuccess, setResetSuccess] = useState(false);
   const [registerForm, setRegisterForm] = useState({
     nome: "",
-    emailPrefix: "",
+    login: "",
     siape: "",
     cargo: "Docente"
   });
@@ -895,8 +897,12 @@ function Login({
     setMode(initialMode);
   }, [initialMode]);
   async function submitResetRequest() {
-    const ok = await requestPasswordReset(email);
-    if (ok) setMode("reset");
+    const normalizedLogin = forgotLogin.trim().toLowerCase();
+    const ok = await requestPasswordReset(normalizedLogin);
+    if (ok) {
+      setEmail(`${normalizedLogin}@ufam.edu.br`);
+      setMode("reset");
+    }
   }
   async function submitNewPassword() {
     if (newPassword !== confirmPassword) {
@@ -922,16 +928,12 @@ function Login({
   }
   async function submitRegister(event) {
     event.preventDefault();
-    const email = `${registerForm.emailPrefix.trim()}@ufam.edu.br`.toLowerCase();
-    const ok = await registerUser({
-      ...registerForm,
-      email
-    });
+    const ok = await registerUser(registerForm);
     if (ok) {
       setRegisterSuccess(true);
       setRegisterForm({
         nome: "",
-        emailPrefix: "",
+        login: "",
         siape: "",
         cargo: "Docente"
       });
@@ -944,8 +946,9 @@ function Login({
     }));
   }
   if (mode === "register") {
-    const validEmailPrefix = /^[a-z0-9._-]+$/i.test(registerForm.emailPrefix.trim());
-    const canSubmit = registerForm.nome && validEmailPrefix && registerForm.siape && registerForm.cargo;
+    const validLogin = /^[a-z0-9._-]+$/i.test(registerForm.login.trim());
+    const validSiape = /^\d{7}$/.test(registerForm.siape);
+    const canSubmit = registerForm.nome && validLogin && validSiape && registerForm.cargo;
     return /*#__PURE__*/React.createElement(AuthLayout, {
       title: "1º acesso",
       description: "Informe seus dados institucionais. O acesso será liberado após validação administrativa em até 24h."
@@ -957,25 +960,28 @@ function Login({
       value: registerForm.nome,
       onChange: v => updateRegister("nome", v)
     }), /*#__PURE__*/React.createElement(EmailPrefixInput, {
-      label: "E-mail institucional",
-      value: registerForm.emailPrefix,
-      onChange: v => updateRegister("emailPrefix", v)
+      label: "Login",
+      value: registerForm.login,
+      onChange: v => updateRegister("login", v)
     }), /*#__PURE__*/React.createElement(Input, {
       label: "Número SIAPE",
       value: registerForm.siape,
-      onChange: v => updateRegister("siape", v),
-      col: "col-sm-6"
+      onChange: v => updateRegister("siape", v.replace(/\D/g, "").slice(0, 7)),
+      col: "col-sm-6",
+      inputMode: "numeric",
+      maxLength: 7,
+      pattern: "[0-9]{7}"
     }), /*#__PURE__*/React.createElement(Select, {
       label: "Cargo",
       value: registerForm.cargo,
       onChange: v => updateRegister("cargo", v),
       options: ["Docente", "Técnico Administrativo em Educação"],
       col: "col-sm-6"
-    }), !validEmailPrefix && registerForm.emailPrefix && /*#__PURE__*/React.createElement("div", {
+    }), !validLogin && registerForm.login && /*#__PURE__*/React.createElement("div", {
       className: "col-12"
     }, /*#__PURE__*/React.createElement("div", {
       className: "alert alert-warning mb-0 small"
-    }, "Informe apenas o início do e-mail, sem @ e sem domínio.")), registerSuccess && /*#__PURE__*/React.createElement("div", {
+    }, "Informe apenas o login, sem @ e sem domínio.")), registerSuccess && /*#__PURE__*/React.createElement("div", {
       className: "col-12"
     }, /*#__PURE__*/React.createElement("div", {
       className: "alert alert-success mb-0"
@@ -991,21 +997,21 @@ function Login({
     }, "Voltar ao login"))));
   }
   if (mode === "forgot") {
+    const validForgotLogin = /^[a-z0-9._-]+$/i.test(forgotLogin.trim());
     return /*#__PURE__*/React.createElement(AuthLayout, {
       title: "Esqueci minha senha",
-      description: "Informe o e-mail cadastrado. O sistema enviará um código temporário de verificação."
-    }, /*#__PURE__*/React.createElement(Input, {
-      label: "E-mail cadastrado",
-      type: "email",
-      value: email,
-      onChange: setEmail
+      description: "Informe seu login institucional. O sistema enviará um código temporário de verificação."
+    }, /*#__PURE__*/React.createElement(EmailPrefixInput, {
+      label: "Login",
+      value: forgotLogin,
+      onChange: setForgotLogin
     }), /*#__PURE__*/React.createElement("div", {
       className: "col-12"
     }, /*#__PURE__*/React.createElement("div", {
       className: "alert alert-warning mb-0 small"
     }, "Em ambiente local, o e-mail é simulado na pasta ", /*#__PURE__*/React.createElement("strong", null, "dev_mailbox"), ". A senha antiga nunca é exibida.")), /*#__PURE__*/React.createElement("button", {
       className: "btn btn-icet w-100",
-      disabled: loading,
+      disabled: loading || !validForgotLogin,
       onClick: submitResetRequest
     }, loading ? "Enviando..." : "Enviar código"), /*#__PURE__*/React.createElement("button", {
       className: "btn btn-outline-icet w-100",
@@ -1591,8 +1597,7 @@ function UserManager({
   const [form, setForm] = useState({
     nome: "",
     login: "",
-    email: "",
-    senha: "",
+    siape: "",
     grupo_id: groups[0]?.id || ""
   });
   const [editingUser, setEditingUser] = useState(null);
@@ -1625,8 +1630,7 @@ function UserManager({
     setForm({
       nome: "",
       login: "",
-      email: "",
-      senha: "",
+      siape: "",
       grupo_id: groups[0]?.id || ""
     });
   }
@@ -1637,8 +1641,7 @@ function UserManager({
     setForm({
       nome: user.nome,
       login: user.login,
-      email: user.email,
-      senha: "",
+      siape: user.siape || "",
       grupo_id: groupIdByName(user.grupo_nome)
     });
   }
@@ -1648,7 +1651,6 @@ function UserManager({
       const ok = await updateUser(editingUser.id, {
         nome: form.nome,
         login: form.login,
-        email: form.email,
         grupo_id: form.grupo_id,
         active: Boolean(editingUser.active)
       });
@@ -1666,11 +1668,13 @@ function UserManager({
     await updateUser(user.id, {
       nome: user.nome,
       login: user.login,
-      email: user.email,
       grupo_id: groupIdByName(user.grupo_nome),
       active: nextActive
     });
   }
+  const validLogin = /^[a-z0-9._-]+$/i.test(form.login.trim());
+  const validSiape = /^\d{7}$/.test(form.siape);
+  const canSubmit = Boolean(form.nome && validLogin && form.grupo_id && (editingUser || validSiape));
   return /*#__PURE__*/React.createElement("section", {
     className: "surface p-3 h-100"
   }, /*#__PURE__*/React.createElement("h2", {
@@ -1682,23 +1686,24 @@ function UserManager({
     label: "Nome",
     value: form.nome,
     onChange: v => update("nome", v)
-  }), /*#__PURE__*/React.createElement(Input, {
+  }), /*#__PURE__*/React.createElement(EmailPrefixInput, {
     label: "Login",
     value: form.login,
     onChange: v => update("login", v),
     col: "col-sm-6"
   }), !editingUser && /*#__PURE__*/React.createElement(Input, {
-    label: "Senha provisória",
-    type: "password",
-    value: form.senha,
-    onChange: v => update("senha", v),
-    col: "col-sm-6"
-  }), /*#__PURE__*/React.createElement(Input, {
-    label: "E-mail",
-    type: "email",
-    value: form.email,
-    onChange: v => update("email", v)
-  }), /*#__PURE__*/React.createElement(Select, {
+    label: "Número SIAPE",
+    value: form.siape,
+    onChange: v => update("siape", v.replace(/\D/g, "").slice(0, 7)),
+    col: "col-sm-6",
+    inputMode: "numeric",
+    maxLength: 7,
+    pattern: "[0-9]{7}"
+  }), !editingUser && /*#__PURE__*/React.createElement("div", {
+    className: "col-12"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "alert alert-info mb-0 small"
+  }, "O sistema gerará uma senha provisória e enviará as instruções para o e-mail institucional do usuário.")), /*#__PURE__*/React.createElement(Select, {
     label: "Grupo",
     value: String(form.grupo_id),
     onChange: v => update("grupo_id", v),
@@ -1713,7 +1718,8 @@ function UserManager({
   }, "Senha não é alterada nesta tela. Use o fluxo \"Esqueci minha senha\" quando necessário.")), /*#__PURE__*/React.createElement("div", {
     className: "col-12 d-flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
-    className: "btn btn-icet flex-fill"
+    className: "btn btn-icet flex-fill",
+    disabled: !canSubmit
   }, editingUser ? "Salvar usuário" : "Cadastrar usuário"), editingUser && /*#__PURE__*/React.createElement("button", {
     className: "btn btn-outline-icet",
     type: "button",
@@ -1758,9 +1764,20 @@ function UsersTable({
     const primaryAdmin = isPrimaryAdminUser(user);
     const active = Boolean(user.active);
     const pending = user.approval_status === "pending";
+    const editable = !primaryAdmin && !pending;
     return /*#__PURE__*/React.createElement("tr", {
-      className: !active ? "inactive-row" : "",
-      key: user.id
+      className: `${!active ? "inactive-row " : ""}${editable ? "clickable-row" : ""}`.trim(),
+      key: user.id,
+      onClick: editable ? () => startEdit(user) : undefined,
+      onKeyDown: editable ? event => {
+        if (event.currentTarget === event.target && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          startEdit(user);
+        }
+      } : undefined,
+      tabIndex: editable ? 0 : undefined,
+      "aria-label": editable ? `Editar usuário ${user.nome}` : undefined,
+      title: editable ? "Clique para editar este usuário" : undefined
     }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("strong", null, user.nome), /*#__PURE__*/React.createElement("small", {
       className: "d-block text-muted"
     }, user.email)), /*#__PURE__*/React.createElement("td", null, user.login), /*#__PURE__*/React.createElement("td", null, user.grupo_nome || "-"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
@@ -1772,15 +1789,13 @@ function UsersTable({
     }, "Protegido")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("div", {
       className: "d-flex flex-wrap gap-2"
     }, /*#__PURE__*/React.createElement("button", {
-      className: "btn btn-sm btn-outline-icet",
-      type: "button",
-      disabled: primaryAdmin || pending,
-      onClick: () => startEdit(user)
-    }, "Editar"), /*#__PURE__*/React.createElement("button", {
       className: `btn btn-sm ${active ? "btn-outline-warning" : "btn-outline-success"}`,
       type: "button",
       disabled: primaryAdmin || pending,
-      onClick: () => toggleActive(user)
+      onClick: event => {
+        event.stopPropagation();
+        toggleActive(user);
+      }
     }, active ? "Desativar" : "Reativar"))));
   }))));
 }
@@ -2121,6 +2136,14 @@ function formatDateTime(value) {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(normalizedValue));
+}
+function attachEstimatedDeadline(request, demands = []) {
+  if (request.prazo_estimado) return request;
+  const demand = demands.find(item => item.nome === request.categoria);
+  return {
+    ...request,
+    prazo_estimado: demand?.prazo || "Não informado"
+  };
 }
 function formatFileSize(size = 0) {
   if (size < 1024) return `${size} B`;
@@ -2613,7 +2636,7 @@ function RequestsTable({
     className: "table-responsive"
   }, /*#__PURE__*/React.createElement("table", {
     className: "table align-middle"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "OS"), /*#__PURE__*/React.createElement("th", null, "Solicitante"), !compact && /*#__PURE__*/React.createElement("th", null, "Demanda"), /*#__PURE__*/React.createElement("th", null, "Local"), /*#__PURE__*/React.createElement("th", null, "Status"), editable && /*#__PURE__*/React.createElement("th", null, "Ação"))), /*#__PURE__*/React.createElement("tbody", null, requests.map(request => /*#__PURE__*/React.createElement("tr", {
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "OS"), /*#__PURE__*/React.createElement("th", null, "Solicitante"), !compact && /*#__PURE__*/React.createElement("th", null, "Demanda"), /*#__PURE__*/React.createElement("th", null, "Local"), /*#__PURE__*/React.createElement("th", null, "Data/Hora"), /*#__PURE__*/React.createElement("th", null, "Status"), editable && /*#__PURE__*/React.createElement("th", null, "Ação"))), /*#__PURE__*/React.createElement("tbody", null, requests.map(request => /*#__PURE__*/React.createElement("tr", {
     key: request.id,
     className: "clickable-row",
     onClick: () => openRequest(request.id)
@@ -2621,7 +2644,11 @@ function RequestsTable({
     className: "fw-bold text-success"
   }, request.protocolo), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("strong", null, request.nome), /*#__PURE__*/React.createElement("small", {
     className: "d-block text-muted"
-  }, request.email)), !compact && /*#__PURE__*/React.createElement("td", null, request.categoria), /*#__PURE__*/React.createElement("td", null, request.localizacao), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(StatusBadge, {
+  }, request.email)), !compact && /*#__PURE__*/React.createElement("td", null, request.categoria), /*#__PURE__*/React.createElement("td", null, request.localizacao), /*#__PURE__*/React.createElement("td", {
+    className: "request-date-cell"
+  }, /*#__PURE__*/React.createElement("span", null, formatDateTime(request.created_at)), /*#__PURE__*/React.createElement("small", {
+    className: "d-block text-muted"
+  }, "Prazo estimado: ", request.prazo_estimado || "Não informado")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(StatusBadge, {
     status: request.status
   })), editable && /*#__PURE__*/React.createElement("td", null, isRequestResolved(request.status) ? /*#__PURE__*/React.createElement("small", {
     className: "text-muted"
@@ -2714,7 +2741,10 @@ function Input({
   value = "",
   onChange = () => {},
   col = "col-12",
-  disabled = false
+  disabled = false,
+  inputMode,
+  maxLength,
+  pattern
 }) {
   const id = label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\W+/g, "-");
   return /*#__PURE__*/React.createElement("div", {
@@ -2729,7 +2759,10 @@ function Input({
     value: value,
     onChange: event => onChange(event.target.value),
     required: true,
-    disabled: disabled
+    disabled: disabled,
+    inputMode: inputMode,
+    maxLength: maxLength,
+    pattern: pattern
   }));
 }
 function EmailPrefixInput({

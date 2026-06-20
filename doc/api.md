@@ -73,8 +73,8 @@ Request:
 ```json
 {
   "nome": "Usuario Teste",
-  "email": "usuario.teste@ufam.edu.br",
-  "siape": "998877",
+  "login": "usuario.teste",
+  "siape": "9988776",
   "cargo": "Docente"
 }
 ```
@@ -89,8 +89,9 @@ Response `201`:
 
 Regras:
 
-- E-mail deve terminar com `@ufam.edu.br`.
-- SIAPE deve conter ao menos 4 digitos.
+- A API deriva o e-mail como `login@ufam.edu.br`.
+- Login aceita letras, numeros, ponto, hifen e sublinhado, sem `@` ou dominio.
+- SIAPE deve conter exatamente 7 digitos numericos.
 - E-mail, login e SIAPE nao podem duplicar cadastro existente.
 - Cadastro nasce `pending`, `active = false` e `first_login_required = true`.
 
@@ -116,9 +117,11 @@ Request:
 
 ```json
 {
-  "email": "mariana.costa@ufam.edu.br"
+  "login": "mariana.costa"
 }
 ```
+
+A API envia o codigo somente para o e-mail institucional derivado `login@ufam.edu.br`.
 
 ### `POST /api/auth/reset-password`
 
@@ -154,6 +157,8 @@ Response:
 Rota autenticada. Retorna usuario logado, permissoes, grupos, usuarios, demandas e solicitacoes conforme perfil.
 
 Administradores recebem todas as solicitacoes. Usuarios comuns recebem apenas as proprias solicitacoes e listas administrativas vazias.
+
+Cada solicitacao serializada inclui `prazo_estimado`, obtido da demanda correspondente.
 
 ## Solicitacoes
 
@@ -296,11 +301,16 @@ As rotas abaixo exigem administrador.
 {
   "nome": "Novo Usuario",
   "login": "novo.usuario",
-  "email": "novo.usuario@ufam.edu.br",
-  "senha": "Senha@123",
+  "siape": "1234567",
   "grupo_id": 2
 }
 ```
+
+Efeitos:
+
+- Deriva o e-mail `novo.usuario@ufam.edu.br`.
+- Gera senha provisoria e grava e-mail simulado em `dev_mailbox/`.
+- Cria o usuario ativo/aprovado com `first_login_required = true`.
 
 ### `PUT /api/users/{id}`
 
@@ -308,7 +318,6 @@ As rotas abaixo exigem administrador.
 {
   "nome": "Novo Nome",
   "login": "novo.login",
-  "email": "novo.email@ufam.edu.br",
   "grupo_id": 2,
   "active": true
 }

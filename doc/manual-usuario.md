@@ -35,13 +35,13 @@ Demo@1234
 Usuarios ainda nao cadastrados devem abrir o fluxo de primeiro acesso e informar:
 
 - Nome completo.
-- E-mail institucional.
-- SIAPE.
+- Login institucional; a tela completa `@ufam.edu.br` automaticamente.
+- SIAPE com exatamente 7 numeros.
 - Cargo.
 
 Regras:
 
-- O e-mail precisa terminar com `@ufam.edu.br`.
+- O e-mail e gravado como `login@ufam.edu.br`.
 - O sistema bloqueia e-mail ou SIAPE duplicado.
 - O cadastro fica pendente ate aprovacao administrativa.
 - Apos a aprovacao, o sistema gera senha provisoria e grava e-mail simulado em `dev_mailbox/`.
@@ -104,6 +104,7 @@ A tela de consulta permite:
 - Filtrar por solicitante.
 - Usar paginacao.
 - Abrir detalhe ao clicar em uma linha.
+- Conferir data/hora da abertura e prazo estimado da demanda na mesma coluna.
 
 Administradores veem todas as solicitacoes. Usuarios comuns veem somente as solicitacoes vinculadas ao seu usuario ou e-mail.
 
@@ -161,6 +162,10 @@ Restrito a administradores:
 
 Usuarios nao sao excluidos. Use ativar/desativar para preservar historico.
 
+Ao cadastrar usuario, informe nome, login, SIAPE de 7 digitos e grupo. O sistema deriva o e-mail institucional, gera uma senha provisoria e grava o envio simulado em `dev_mailbox/`. O usuario deve definir a senha definitiva no primeiro acesso.
+
+Para editar, clique diretamente na linha do usuario. O botao separado serve apenas para ativar ou desativar.
+
 O usuario principal `admin` nao pode ser editado nem desativado pela tela administrativa.
 
 ## Relatorios
@@ -172,7 +177,7 @@ Administradores podem acessar relatorios, aplicar filtros e gerar saidas para im
 Fluxo:
 
 1. Abrir `Esqueci minha senha`.
-2. Informar e-mail cadastrado.
+2. Informar somente o login; a tela completa `@ufam.edu.br`.
 3. Consultar o codigo no e-mail simulado em `dev_mailbox/` no ambiente local.
 4. Informar codigo, nova senha e confirmacao.
 5. Fazer login com a nova senha.

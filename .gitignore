@@ -6,3 +6,5 @@ staticfiles/
 uploads/
 dev_mailbox/
 *.sqlite3
+runserver*.log
+runserver.exitcode

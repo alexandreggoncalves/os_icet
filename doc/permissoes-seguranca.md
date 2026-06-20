@@ -43,6 +43,8 @@ Funcoes principais em `service/views.py`:
 | `is_resolved_status(status)` | Detecta solicitacao resolvida |
 | `password_validation_error(password)` | Aplica politica minima de senha |
 | `is_ufam_email(email)` | Valida dominio institucional |
+| `valid_institutional_login(login)` | Valida o prefixo usado para derivar `login@ufam.edu.br` |
+| `valid_siape(siape)` | Exige exatamente 7 digitos numericos |
 
 ## Senhas
 
@@ -80,6 +82,10 @@ Pontos a reforcar para producao:
 ## E-mails simulados
 
 Recuperacao de senha e aprovacao gravam arquivos em `dev_mailbox/`.
+
+O usuario informa somente o login nos fluxos institucionais. O backend deriva o e-mail `login@ufam.edu.br`, rejeita dominios externos na redefinicao e evita depender apenas da validacao do frontend.
+
+Cadastros administrativos geram senha provisoria aleatoria, armazenam apenas o hash e obrigam a troca no primeiro acesso.
 
 Para producao:
 

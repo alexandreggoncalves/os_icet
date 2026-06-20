@@ -26,6 +26,10 @@ A aplicacao esta implementada como um sistema Django funcional:
 - Templates em `templates/`, com entrada principal `templates/index.html`.
 - Uploads locais em `uploads/`.
 - Recuperacao de senha e aprovacao com e-mail simulado em `dev_mailbox/`.
+- Login institucional com e-mail derivado automaticamente.
+- SIAPE obrigatorio de 7 digitos e senha provisoria automatica.
+- Solicitacoes com data/hora e prazo estimado na listagem.
+- Testes de regressao em `service/tests.py`.
 - Docker Compose com servicos `web` e `db`.
 
 ## Contas iniciais de teste

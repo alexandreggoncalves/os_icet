@@ -29,10 +29,11 @@ A nova versao preserva a experiencia funcional do prototipo original, mas substi
 ## Funcionalidades implementadas
 
 - Login por token Bearer persistido em tabela `session_tokens`.
-- Auto-cadastro institucional com e-mail `@ufam.edu.br`.
+- Auto-cadastro institucional informando login; e-mail derivado como `login@ufam.edu.br`.
+- SIAPE obrigatorio com exatamente 7 digitos.
 - Aprovacao administrativa de cadastros pendentes.
 - Primeiro acesso com senha provisoria.
-- Recuperacao de senha com codigo e e-mail simulado.
+- Recuperacao de senha pelo login institucional, com codigo e e-mail simulado.
 - Cadastro de solicitacoes por usuarios autenticados.
 - Controle de acesso por administrador e usuario comum.
 - Alteracao de status por administradores.
@@ -40,6 +41,9 @@ A nova versao preserva a experiencia funcional do prototipo original, mas substi
 - Historico de interacoes em formato de conversa.
 - Upload, listagem e exclusao de anexos.
 - Gerenciamento de grupos, usuarios e demandas.
+- Senha provisoria automatica no cadastro administrativo de usuario.
+- Data/hora e prazo estimado na listagem de solicitacoes.
+- Edicao de usuario pelo clique na linha da tabela.
 - Relatorios e exportacao CSV pelo frontend preservado.
 
 ## Tecnologias

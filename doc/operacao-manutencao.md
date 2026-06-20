@@ -68,6 +68,12 @@ python manage.py seed_demo_data
 python manage.py runserver 127.0.0.1:8000
 ```
 
+No Windows, o atalho versionado executa o mesmo servidor sem autoreload e registra saidas locais ignoradas pelo Git:
+
+```bat
+run-local.cmd
+```
+
 URL:
 
 ```text

@@ -29,6 +29,11 @@
 | RF23 | Servir frontend React pelo Django | Implementado |
 | RF24 | Usar PostgreSQL com migrations versionadas | Implementado |
 | RF25 | Executar em Docker com web e banco | Implementado |
+| RF26 | Derivar e-mail institucional a partir do login | Implementado |
+| RF27 | Exigir SIAPE numerico com exatamente 7 digitos | Implementado |
+| RF28 | Gerar senha provisoria no cadastro administrativo de usuario | Implementado |
+| RF29 | Exibir data/hora e prazo estimado na lista de solicitacoes | Implementado |
+| RF30 | Permitir edicao de usuario pelo clique na linha | Implementado |
 
 ## Regras de negocio
 
@@ -45,8 +50,8 @@
 
 ### Cadastro institucional
 
-- O e-mail deve terminar com `@ufam.edu.br`.
-- SIAPE deve ter formato numerico com pelo menos 4 digitos.
+- O usuario informa somente o login; o sistema deriva `login@ufam.edu.br`.
+- SIAPE deve ter exatamente 7 digitos numericos.
 - E-mail, login e SIAPE nao podem duplicar cadastro existente.
 - O grupo sugerido depende do cargo: docente/professor vai para Docentes; demais vao para Tecnicos Administrativos.
 
@@ -85,6 +90,8 @@
 ### Gerenciamento de usuarios
 
 - Administradores cadastram, editam, ativam e desativam usuarios.
+- Cadastro administrativo gera senha provisoria, e-mail simulado e exige troca no primeiro acesso.
+- A edicao e aberta pelo clique na linha; ativacao/desativacao permanece uma acao separada.
 - Usuarios nao sao excluidos, para preservar historico.
 - O usuario principal `admin` nao pode ser editado nem desativado pelo gerenciamento.
 - Senha nao e alterada pela tela administrativa; use recuperacao de senha.
