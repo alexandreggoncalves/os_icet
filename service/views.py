@@ -755,16 +755,16 @@ def users_collection(request):
         return api_response({"detail": "Seu grupo não tem permissão para cadastrar usuários."}, 403)
     payload = read_json(request)
     nome = payload.get("nome", "").strip()
-    login_value = normalize_institutional_login(payload.get("login"))
+    login_value = normalize_institutional_login(payload.get("login") or payload.get("email"))
     siape = str(payload.get("siape", "")).strip()
     try:
         group_id = int(payload.get("grupo_id", 0) or 0)
     except (TypeError, ValueError):
         return api_response({"detail": "Grupo informado não encontrado."}, 422)
     if not nome or not login_value or not siape or not group_id:
-        return api_response({"detail": "Informe nome, login, SIAPE e grupo."}, 422)
+        return api_response({"detail": "Informe nome, prefixo do e-mail institucional, SIAPE e grupo."}, 422)
     if not valid_institutional_login(login_value):
-        return api_response({"detail": "Informe um login institucional válido, sem @ ou domínio."}, 422)
+        return api_response({"detail": "Informe um prefixo de e-mail institucional válido, sem @ ou domínio."}, 422)
     if not valid_siape(siape):
         return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
     if not AccessGroup.objects.filter(id=group_id, active=True).exists():
@@ -818,7 +818,7 @@ def update_user(request, user_id):
     if item.id == acting_user.id and not active:
         return api_response({"detail": "Você não pode desativar o próprio usuário em uso."}, 403)
     item.nome = payload.get("nome", item.nome).strip()
-    item.login = normalize_institutional_login(payload.get("login", item.login))
+    item.login = normalize_institutional_login(payload.get("login") or payload.get("email") or item.login)
     item.email = institutional_email(item.login)
     item.siape = str(payload.get("siape", item.siape or "")).strip()
     try:
@@ -827,7 +827,7 @@ def update_user(request, user_id):
         return api_response({"detail": "Grupo informado não encontrado."}, 422)
     item.active = active
     if not item.nome or not valid_institutional_login(item.login) or not item.group_id:
-        return api_response({"detail": "Informe nome, login institucional válido, SIAPE e grupo."}, 422)
+        return api_response({"detail": "Informe nome, prefixo de e-mail institucional válido, SIAPE e grupo."}, 422)
     if not valid_siape(item.siape):
         return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
     if not AccessGroup.objects.filter(id=item.group_id, active=True).exists():

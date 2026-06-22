@@ -1752,7 +1752,7 @@ function UserManager({
     value: form.nome,
     onChange: v => update("nome", v)
   }), /*#__PURE__*/React.createElement(EmailPrefixInput, {
-    label: "Login",
+    label: "E-mail institucional",
     value: form.login,
     onChange: v => update("login", v),
     col: "col-sm-6"

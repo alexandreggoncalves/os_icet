@@ -105,6 +105,25 @@ class UserRegistrationTests(TestCase):
         self.assertFalse(user.first_login_required)
         self.assertTrue(check_password("Definitiva@123", user.password_hash))
 
+    @patch("service.views.write_approval_email")
+    def test_admin_creation_accepts_email_prefix_field(self, write_email):
+        response = self.post_json(
+            "/api/users",
+            {
+                "nome": "Email Prefixo",
+                "email": "Email.Prefixo",
+                "siape": "7654322",
+                "grupo_id": self.docente_group.id,
+            },
+            authenticated=True,
+        )
+
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(login="email.prefixo")
+        self.assertEqual(user.email, "email.prefixo@ufam.edu.br")
+        self.assertEqual(user.siape, "7654322")
+        write_email.assert_called_once()
+
     def test_siape_requires_exactly_seven_digits(self):
         scenarios = [
             (
@@ -301,6 +320,33 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         user.refresh_from_db()
         self.assertEqual(user.siape, "2222222")
+
+    def test_admin_can_update_user_from_full_institutional_email(self):
+        user = User.objects.create(
+            nome="Usuário Editável",
+            login="usuario.editavel",
+            email="usuario.editavel@ufam.edu.br",
+            siape="3333333",
+            password_hash=make_password("Teste@123"),
+            group=self.docente_group,
+        )
+
+        response = self.put_json(
+            f"/api/users/{user.id}",
+            {
+                "nome": "Usuário Alterado",
+                "email": "Novo.Usuario@ufam.edu.br",
+                "siape": "4444444",
+                "grupo_id": self.docente_group.id,
+                "active": True,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user.refresh_from_db()
+        self.assertEqual(user.login, "novo.usuario")
+        self.assertEqual(user.email, "novo.usuario@ufam.edu.br")
+        self.assertEqual(user.siape, "4444444")
 
     def test_administrators_group_cannot_be_edited_or_deactivated(self):
         response = self.put_json(
