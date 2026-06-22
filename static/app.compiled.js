@@ -670,9 +670,9 @@ function PageTitle({
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "mb-4"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, !authed && /*#__PURE__*/React.createElement("span", {
     className: "badge rounded-pill badge-soft mb-2"
-  }, authed ? "Ambiente local com SQLite" : "Acesso público"), /*#__PURE__*/React.createElement("h1", {
+  }, "Acesso público"), /*#__PURE__*/React.createElement("h1", {
     className: "h3 fw-bold text-icet-900 m-0"
   }, currentPage?.label));
 }
