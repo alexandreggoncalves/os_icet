@@ -39,7 +39,7 @@ def read_json(request):
 def format_dt(value):
     if not value:
         return None
-    return timezone.localtime(value).strftime("%Y-%m-%d %H:%M:%S")
+    return timezone.localtime(value).isoformat(timespec="seconds")
 
 
 def password_validation_error(password):

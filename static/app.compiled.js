@@ -2256,10 +2256,11 @@ function Info({
 function formatDateTime(value) {
   if (!value) return "-";
   const rawValue = String(value);
-  const normalizedValue = rawValue.includes("T") ? rawValue : `${rawValue.replace(" ", "T")}Z`;
+  const normalizedValue = rawValue.includes("T") ? rawValue : rawValue.replace(" ", "T");
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
-    timeStyle: "short"
+    timeStyle: "short",
+    timeZone: "America/Manaus"
   }).format(new Date(normalizedValue));
 }
 function attachEstimatedDeadline(request, demands = []) {

@@ -1,4 +1,5 @@
 import json
+import datetime
 
 from unittest.mock import patch
 
@@ -8,6 +9,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from service.models import AccessGroup, Demand, PasswordReset, ServiceRequest, SessionToken, User
+from service.views import format_dt
 
 
 class UserRegistrationTests(TestCase):
@@ -56,6 +58,11 @@ class UserRegistrationTests(TestCase):
         user = User.objects.get(siape="1234567")
         self.assertEqual(user.login, "pessoa.teste")
         self.assertEqual(user.email, "pessoa.teste@ufam.edu.br")
+
+    def test_format_dt_uses_manaus_offset(self):
+        value = datetime.datetime(2026, 6, 22, 13, 30, tzinfo=datetime.UTC)
+
+        self.assertEqual(format_dt(value), "2026-06-22T09:30:00-04:00")
 
     @patch("service.views.write_approval_email")
     def test_admin_creation_generates_temporary_password_and_email(self, write_email):
