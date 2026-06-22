@@ -59,12 +59,23 @@ const pages = [{
   label: "Demandas",
   adminOnly: true,
   management: true
+}, {
+  id: "gerenciamento-locais",
+  label: "Locais",
+  adminOnly: true,
+  management: true
+}, {
+  id: "gerenciamento-blocos",
+  label: "Blocos",
+  adminOnly: true,
+  management: true
 }];
 const emptyRequest = {
   nome: "",
   siape: "",
   email: "",
   perfil: "Docente",
+  local: "",
   bloco: "",
   sala: "",
   categoria: "Manutenção de Hardware",
@@ -79,6 +90,8 @@ function App() {
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
   const [demands, setDemands] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [blocks, setBlocks] = useState([]);
   const [permissions, setPermissions] = useState({});
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [toast, setToast] = useState(null);
@@ -129,6 +142,8 @@ function App() {
     try {
       const publicData = await api("/api/public/bootstrap");
       setDemands(publicData.demands || []);
+      setLocations(publicData.locations || []);
+      setBlocks(publicData.blocks || []);
       if (token) {
         const data = await api("/api/admin/bootstrap");
         const requestDemands = data.demands || publicData.demands || [];
@@ -137,6 +152,8 @@ function App() {
         setGroups(data.groups || []);
         setUsers(data.users || []);
         setDemands(data.demands || []);
+        setLocations(data.locations || []);
+        setBlocks(data.blocks || []);
         setPermissions(data.permissions || {});
         if (data.user?.first_login_required) {
           setPage("primeiro-acesso");
@@ -460,6 +477,8 @@ function App() {
   }, /*#__PURE__*/React.createElement(RequestForm, {
     createRequest: createRequest,
     demands: demands,
+    locations: locations,
+    blocks: blocks,
     loading: loading,
     user: user
   })), page === "login" && /*#__PURE__*/React.createElement(Login, {
@@ -544,6 +563,23 @@ function App() {
     demands: demands,
     createDemand: payload => createEntity("/api/demands", payload, setDemands, "Demanda cadastrada."),
     updateDemand: (id, payload) => updateEntity("/api/demands", id, payload, setDemands, "Demanda atualizada.")
+  })), page === "gerenciamento-locais" && /*#__PURE__*/React.createElement(Protected, {
+    authed: authed,
+    allowed: permissions.can_manage,
+    setPage: setPage
+  }, /*#__PURE__*/React.createElement(LocationManager, {
+    locations: locations,
+    createLocation: payload => createEntity("/api/locations", payload, setLocations, "Local cadastrado."),
+    updateLocation: (id, payload) => updateEntity("/api/locations", id, payload, setLocations, "Local atualizado.")
+  })), page === "gerenciamento-blocos" && /*#__PURE__*/React.createElement(Protected, {
+    authed: authed,
+    allowed: permissions.can_manage,
+    setPage: setPage
+  }, /*#__PURE__*/React.createElement(BlockManager, {
+    blocks: blocks,
+    locations: locations,
+    createBlock: payload => createEntity("/api/blocks", payload, setBlocks, "Bloco cadastrado."),
+    updateBlock: (id, payload) => updateEntity("/api/blocks", id, payload, setBlocks, "Bloco atualizado.")
   })), page === "gerenciamento" && /*#__PURE__*/React.createElement(Protected, {
     authed: authed,
     allowed: permissions.can_manage,
@@ -808,12 +844,43 @@ function Feature({
 function RequestForm({
   createRequest,
   demands,
+  locations,
+  blocks,
   loading,
   user
 }) {
   const [form, setForm] = useState(emptyRequest);
+  const activeLocations = locations.filter(item => item.active !== false);
+  const activeBlocks = blocks.filter(item => item.active !== false);
+  const selectedLocation = activeLocations.find(item => item.nome === form.local) || null;
+  const filteredBlocks = selectedLocation ? activeBlocks.filter(item => Number(item.local_id || item.location_id) === Number(selectedLocation.id)) : [];
+  function defaultRequestValues() {
+    const firstLocation = activeLocations[0] || null;
+    const firstBlock = firstLocation ? activeBlocks.find(item => Number(item.local_id || item.location_id) === Number(firstLocation.id)) : null;
+    return {
+      ...emptyRequest,
+      local: firstLocation?.nome || "",
+      bloco: firstBlock?.nome || ""
+    };
+  }
   const registeredSiape = user?.siape || "";
   const hasRegisteredSiape = Boolean(registeredSiape);
+  useEffect(() => {
+    if (!form.local && activeLocations[0]) {
+      setForm(current => ({
+        ...current,
+        local: activeLocations[0].nome
+      }));
+    }
+  }, [locations]);
+  useEffect(() => {
+    if (form.local && !form.bloco && filteredBlocks[0]) {
+      setForm(current => ({
+        ...current,
+        bloco: filteredBlocks[0].nome
+      }));
+    }
+  }, [form.local, blocks]);
   const requestPayload = {
     ...form,
     nome: user.nome,
@@ -824,13 +891,16 @@ function RequestForm({
   function update(field, value) {
     setForm(current => ({
       ...current,
-      [field]: value
+      [field]: value,
+      ...(field === "local" ? {
+        bloco: ""
+      } : {})
     }));
   }
   async function submit(event) {
     event.preventDefault();
     const ok = await createRequest(requestPayload);
-    if (ok) setForm(emptyRequest);
+    if (ok) setForm(defaultRequestValues());
   }
   return /*#__PURE__*/React.createElement("section", {
     className: "surface p-3 p-lg-4"
@@ -884,16 +954,26 @@ function RequestForm({
     onChange: v => update("categoria", v),
     options: demands.filter(item => item.active !== false).map(item => item.nome),
     col: "col-sm-6"
-  }), /*#__PURE__*/React.createElement(Input, {
-    label: "Bloco da ocorrência",
+  }), /*#__PURE__*/React.createElement(Select, {
+    label: "Local",
+    value: form.local,
+    onChange: v => update("local", v),
+    options: activeLocations.map(item => item.nome),
+    col: "col-sm-6"
+  }), /*#__PURE__*/React.createElement(Select, {
+    label: "Bloco",
     value: form.bloco,
     onChange: v => update("bloco", v),
+    options: filteredBlocks.map(item => item.nome),
     col: "col-sm-6"
   }), /*#__PURE__*/React.createElement(Input, {
     label: "Sala",
     value: form.sala,
-    onChange: v => update("sala", v),
-    col: "col-sm-6"
+    onChange: v => update("sala", v.replace(/\D/g, "").slice(0, 3)),
+    col: "col-sm-6",
+    inputMode: "numeric",
+    maxLength: 3,
+    pattern: "[0-9]{1,3}"
   }), /*#__PURE__*/React.createElement(TextArea, {
     label: "Descrição sucinta da ocorrência",
     value: form.descricao,
@@ -1967,10 +2047,175 @@ function DemandManager({
     toggleActive: toggleActive
   }));
 }
+function LocationManager({
+  locations,
+  createLocation,
+  updateLocation
+}) {
+  const [nome, setNome] = useState("");
+  const [editingLocation, setEditingLocation] = useState(null);
+  function resetForm() {
+    setEditingLocation(null);
+    setNome("");
+  }
+  function startEdit(location) {
+    setEditingLocation(location);
+    setNome(location.nome);
+  }
+  async function submit(event) {
+    event.preventDefault();
+    const payload = {
+      nome
+    };
+    const ok = editingLocation ? await updateLocation(editingLocation.id, {
+      ...payload,
+      active: editingLocation.active !== false
+    }) : await createLocation(payload);
+    if (ok) resetForm();
+  }
+  async function toggleActive(location) {
+    const nextActive = location.active === false;
+    const action = nextActive ? "reativar" : "desativar";
+    if (!window.confirm(`Deseja ${action} o local ${location.nome}?`)) return;
+    const ok = await updateLocation(location.id, {
+      nome: location.nome,
+      active: nextActive
+    });
+    if (ok && editingLocation?.id === location.id) resetForm();
+  }
+  return /*#__PURE__*/React.createElement("section", {
+    className: "surface p-3 h-100"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "h5 fw-bold"
+  }, "Locais"), /*#__PURE__*/React.createElement("form", {
+    className: "row g-3 mb-3",
+    onSubmit: submit
+  }, /*#__PURE__*/React.createElement(Input, {
+    label: "Nome do local",
+    value: nome,
+    onChange: setNome
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "col-12 d-flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-icet flex-fill",
+    disabled: !nome.trim()
+  }, editingLocation ? "Salvar local" : "Cadastrar local"), editingLocation && /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-outline-icet",
+    type: "button",
+    onClick: resetForm
+  }, "Cancelar"))), /*#__PURE__*/React.createElement(ManagementEntityTable, {
+    items: locations,
+    detailField: "created_at",
+    detailLabel: "Criado em",
+    detailFormatter: formatDateTime,
+    startEdit: startEdit,
+    toggleActive: toggleActive
+  }));
+}
+function BlockManager({
+  blocks,
+  locations,
+  createBlock,
+  updateBlock
+}) {
+  const activeLocations = locations.filter(location => location.active !== false);
+  const [form, setForm] = useState({
+    nome: "",
+    local_id: activeLocations[0]?.id || ""
+  });
+  const [editingBlock, setEditingBlock] = useState(null);
+  useEffect(() => {
+    if (!form.local_id && activeLocations[0]) setForm(current => ({
+      ...current,
+      local_id: activeLocations[0].id
+    }));
+  }, [locations]);
+  function update(field, value) {
+    setForm(current => ({
+      ...current,
+      [field]: value
+    }));
+  }
+  function resetForm() {
+    setEditingBlock(null);
+    setForm({
+      nome: "",
+      local_id: activeLocations[0]?.id || ""
+    });
+  }
+  function startEdit(block) {
+    setEditingBlock(block);
+    setForm({
+      nome: block.nome,
+      local_id: block.local_id || block.location_id || ""
+    });
+  }
+  async function submit(event) {
+    event.preventDefault();
+    const payload = {
+      nome: form.nome,
+      local_id: form.local_id
+    };
+    const ok = editingBlock ? await updateBlock(editingBlock.id, {
+      ...payload,
+      active: editingBlock.active !== false
+    }) : await createBlock(payload);
+    if (ok) resetForm();
+  }
+  async function toggleActive(block) {
+    const nextActive = block.active === false;
+    const action = nextActive ? "reativar" : "desativar";
+    if (!window.confirm(`Deseja ${action} o bloco ${block.nome}?`)) return;
+    const ok = await updateBlock(block.id, {
+      nome: block.nome,
+      local_id: block.local_id || block.location_id,
+      active: nextActive
+    });
+    if (ok && editingBlock?.id === block.id) resetForm();
+  }
+  return /*#__PURE__*/React.createElement("section", {
+    className: "surface p-3 h-100"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "h5 fw-bold"
+  }, "Blocos"), /*#__PURE__*/React.createElement("form", {
+    className: "row g-3 mb-3",
+    onSubmit: submit
+  }, /*#__PURE__*/React.createElement(Input, {
+    label: "Nome do bloco",
+    value: form.nome,
+    onChange: value => update("nome", value),
+    col: "col-sm-6"
+  }), /*#__PURE__*/React.createElement(Select, {
+    label: "Local",
+    value: String(form.local_id),
+    onChange: value => update("local_id", value),
+    options: activeLocations.map(location => ({
+      value: String(location.id),
+      label: location.nome
+    })),
+    col: "col-sm-6"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "col-12 d-flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-icet flex-fill",
+    disabled: !form.nome.trim() || !form.local_id
+  }, editingBlock ? "Salvar bloco" : "Cadastrar bloco"), editingBlock && /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-outline-icet",
+    type: "button",
+    onClick: resetForm
+  }, "Cancelar"))), /*#__PURE__*/React.createElement(ManagementEntityTable, {
+    items: blocks,
+    detailField: "local_nome",
+    detailLabel: "Local",
+    startEdit: startEdit,
+    toggleActive: toggleActive
+  }));
+}
 function ManagementEntityTable({
   items,
   detailField,
   detailLabel,
+  detailFormatter,
   startEdit,
   toggleActive,
   protectedName
@@ -1994,7 +2239,7 @@ function ManagementEntityTable({
       } : undefined,
       tabIndex: !protectedItem ? 0 : undefined,
       title: !protectedItem ? "Clique para editar" : "Grupo protegido"
-    }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("strong", null, item.nome)), /*#__PURE__*/React.createElement("td", null, item[detailField] || "-"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("strong", null, item.nome)), /*#__PURE__*/React.createElement("td", null, detailFormatter ? detailFormatter(item[detailField]) : item[detailField] || "-"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
       className: `badge rounded-pill ${active ? "text-bg-success" : "text-bg-secondary"}`
     }, active ? "Ativo" : "Inativo"), protectedItem && /*#__PURE__*/React.createElement("small", {
       className: "d-block text-muted mt-1"
@@ -2148,6 +2393,9 @@ function RequestDetail({
   }), /*#__PURE__*/React.createElement(Info, {
     label: "Perfil",
     value: request.perfil
+  }), /*#__PURE__*/React.createElement(Info, {
+    label: "Local",
+    value: request.local
   }), /*#__PURE__*/React.createElement(Info, {
     label: "Bloco",
     value: request.bloco
@@ -2517,6 +2765,7 @@ function openRequestPdfWindow(request) {
             ${printInfoRow("E-mail", request.email)}
             ${printInfoRow("SIAPE", request.siape)}
             ${printInfoRow("Perfil", request.perfil)}
+            ${printInfoRow("Local", request.local)}
             ${printInfoRow("Categoria", request.categoria)}
             ${printInfoRow("Localização", request.localizacao)}
             ${printInfoRow("Bloco", request.bloco)}
@@ -2559,8 +2808,8 @@ function csvValue(value = "") {
   return `"${text.replace(/"/g, '""')}"`;
 }
 function downloadReportsCsv(requests, filters) {
-  const headers = ["Protocolo", "Solicitante", "E-mail", "SIAPE", "Perfil", "Demanda", "Localização", "Bloco", "Sala", "Status", "Criada em", "Atualizada em", "Descrição"];
-  const rows = requests.map(request => [request.protocolo, request.nome, request.email, request.siape, request.perfil, request.categoria, request.localizacao, request.bloco, request.sala, request.status, formatDateTime(request.created_at), formatDateTime(request.updated_at), request.descricao]);
+  const headers = ["Protocolo", "Solicitante", "E-mail", "SIAPE", "Perfil", "Demanda", "Local", "Localização", "Bloco", "Sala", "Status", "Criada em", "Atualizada em", "Descrição"];
+  const rows = requests.map(request => [request.protocolo, request.nome, request.email, request.siape, request.perfil, request.categoria, request.local, request.localizacao, request.bloco, request.sala, request.status, formatDateTime(request.created_at), formatDateTime(request.updated_at), request.descricao]);
   const content = [headers, ...rows].map(row => row.map(csvValue).join(";")).join("\r\n");
   const blob = new Blob([`\uFEFF${content}`], {
     type: "text/csv;charset=utf-8"

@@ -30,6 +30,10 @@ urlpatterns = [
     path("api/users/<int:user_id>/reject", views.reject_user),
     path("api/demands", views.demands_collection),
     path("api/demands/<int:demand_id>", views.update_demand),
+    path("api/locations", views.locations_collection),
+    path("api/locations/<int:location_id>", views.update_location),
+    path("api/blocks", views.blocks_collection),
+    path("api/blocks/<int:block_id>", views.update_block),
     re_path(r"^(?P<path>(assets|vendor)/.*)$", serve, {"document_root": settings.BASE_DIR / "static"}),
 ]
 

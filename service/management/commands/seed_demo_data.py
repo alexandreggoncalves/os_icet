@@ -5,7 +5,7 @@ from django.db import connection
 from django.db import transaction
 from django.utils import timezone
 
-from service.models import AccessGroup, Demand, Interaction, ServiceRequest, User
+from service.models import AccessGroup, Block, Demand, Interaction, Location, ServiceRequest, User
 from service.views import create_request_record
 
 
@@ -25,6 +25,7 @@ class Command(BaseCommand):
             self.reset_sequences()
             demo_users = self.create_demo_users(docente_group, tecnico_group)
             self.create_demands()
+            self.create_locations_and_blocks()
 
             demo_emails = [user.email for user in demo_users]
             ServiceRequest.objects.filter(email__in=demo_emails).delete()
@@ -42,7 +43,7 @@ class Command(BaseCommand):
 
     def reset_sequences(self):
         sequence_sql = connection.ops.sequence_reset_sql(
-            no_style(), [AccessGroup, Demand, Interaction, ServiceRequest, User]
+            no_style(), [AccessGroup, Block, Demand, Interaction, Location, ServiceRequest, User]
         )
         with connection.cursor() as cursor:
             for statement in sequence_sql:
@@ -129,14 +130,25 @@ class Command(BaseCommand):
         ]:
             Demand.objects.update_or_create(nome=nome, defaults={"prazo": prazo})
 
+    def create_locations_and_blocks(self):
+        specs = {
+            "ICET": ["Bloco A", "Bloco B", "Bloco C", "Bloco D", "Bloco Administrativo"],
+            "Biblioteca Setorial": ["Atendimento"],
+        }
+        for location_name, blocks in specs.items():
+            location, _ = Location.objects.update_or_create(nome=location_name, defaults={"active": True})
+            for block_name in blocks:
+                Block.objects.update_or_create(location=location, nome=block_name, defaults={"active": True})
+
     def create_requests(self, admin, users):
         by_login = {user.login: user for user in users}
         specs = [
             {
                 "owner": by_login["carla.menezes"],
                 "status": "Aberto",
+                "local": "ICET",
                 "bloco": "Bloco B",
-                "sala": "Laboratório de Química 02",
+                "sala": "102",
                 "categoria": "Manutenção de Hardware",
                 "descricao": "Computador do laboratório apresenta desligamentos durante as aulas práticas.",
                 "interactions": [
@@ -147,8 +159,9 @@ class Command(BaseCommand):
             {
                 "owner": by_login["paulo.andrade"],
                 "status": "Aberto",
+                "local": "ICET",
                 "bloco": "Bloco C",
-                "sala": "Sala 18",
+                "sala": "118",
                 "categoria": "Instalação de Software",
                 "descricao": "Solicito instalação do QGIS e atualização do pacote LibreOffice para disciplina de geoprocessamento.",
                 "interactions": [
@@ -159,8 +172,9 @@ class Command(BaseCommand):
             {
                 "owner": by_login["luciana.rocha"],
                 "status": "Aberto",
+                "local": "ICET",
                 "bloco": "Bloco A",
-                "sala": "Coordenação Acadêmica",
+                "sala": "101",
                 "categoria": "Telefonia e Ramais",
                 "descricao": "Ramal da coordenação está mudo e não recebe ligações externas.",
                 "interactions": [
@@ -170,8 +184,9 @@ class Command(BaseCommand):
             {
                 "owner": by_login["bruno.almeida"],
                 "status": "Em Atendimento",
+                "local": "ICET",
                 "bloco": "Bloco Administrativo",
-                "sala": "Secretaria Geral",
+                "sala": "201",
                 "categoria": "Redes de Computadores",
                 "descricao": "Estações da secretaria estão sem acesso ao sistema acadêmico pela rede cabeada.",
                 "interactions": [
@@ -183,8 +198,9 @@ class Command(BaseCommand):
             {
                 "owner": by_login["fernanda.sousa"],
                 "status": "Em Atendimento",
+                "local": "ICET",
                 "bloco": "Bloco D",
-                "sala": "Auditório",
+                "sala": "001",
                 "categoria": "Suporte Audiovisual",
                 "descricao": "Microfone sem fio apresenta ruídos constantes durante seminários.",
                 "interactions": [
@@ -196,8 +212,9 @@ class Command(BaseCommand):
             {
                 "owner": by_login["diego.nascimento"],
                 "status": "Em Atendimento",
+                "local": "Biblioteca Setorial",
                 "bloco": "Biblioteca Setorial",
-                "sala": "Atendimento",
+                "sala": "010",
                 "categoria": "Acesso a Sistemas",
                 "descricao": "Usuários do atendimento relatam erro ao autenticar no sistema de patrimônio.",
                 "interactions": [
@@ -209,8 +226,9 @@ class Command(BaseCommand):
             {
                 "owner": by_login["carla.menezes"],
                 "status": "Resolvido",
+                "local": "ICET",
                 "bloco": "Bloco B",
-                "sala": "Laboratório de Química 01",
+                "sala": "101",
                 "categoria": "Mobiliário e Infraestrutura",
                 "descricao": "Bancada próxima à pia está com tomada solta e precisa de isolamento.",
                 "interactions": [
@@ -222,8 +240,9 @@ class Command(BaseCommand):
             {
                 "owner": by_login["paulo.andrade"],
                 "status": "Resolvido",
+                "local": "ICET",
                 "bloco": "Bloco C",
-                "sala": "Laboratório de Informática 04",
+                "sala": "104",
                 "categoria": "Manutenção de Hardware",
                 "descricao": "Projetor do laboratório não reconhecia entrada HDMI do computador principal.",
                 "interactions": [
@@ -235,8 +254,9 @@ class Command(BaseCommand):
             {
                 "owner": by_login["luciana.rocha"],
                 "status": "Resolvido",
+                "local": "ICET",
                 "bloco": "Bloco A",
-                "sala": "Protocolo",
+                "sala": "100",
                 "categoria": "Manutenção Predial",
                 "descricao": "Lâmpadas queimadas no corredor de acesso ao protocolo.",
                 "interactions": [
@@ -256,6 +276,7 @@ class Command(BaseCommand):
                     "siape": owner.siape,
                     "email": owner.email,
                     "perfil": owner.group.nome,
+                    "local": spec["local"],
                     "bloco": spec["bloco"],
                     "sala": spec["sala"],
                     "categoria": spec["categoria"],

@@ -56,6 +56,34 @@ class Demand(models.Model):
         return self.nome
 
 
+class Location(models.Model):
+    nome = models.CharField(max_length=180, unique=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "locations"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class Block(models.Model):
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="blocks", db_column="location_id")
+    nome = models.CharField(max_length=180)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "blocks"
+        ordering = ["location__nome", "nome"]
+        unique_together = [("location", "nome")]
+
+    def __str__(self):
+        return f"{self.location.nome} - {self.nome}"
+
+
 class ServiceRequest(models.Model):
     protocolo = models.CharField(max_length=32, unique=True)
     owner_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="owner_user_id")
@@ -63,6 +91,7 @@ class ServiceRequest(models.Model):
     siape = models.CharField(max_length=40)
     email = models.EmailField()
     perfil = models.CharField(max_length=120)
+    local = models.CharField(max_length=180, default="")
     bloco = models.CharField(max_length=120)
     sala = models.CharField(max_length=120)
     categoria = models.CharField(max_length=180)
@@ -80,7 +109,8 @@ class ServiceRequest(models.Model):
 
     @property
     def localizacao(self):
-        return f"{self.bloco} - {self.sala}"
+        parts = [self.local, self.bloco, f"Sala {self.sala}" if self.sala else ""]
+        return " - ".join(part for part in parts if part)
 
 
 class Interaction(models.Model):

@@ -2,7 +2,7 @@ from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from service.models import AccessGroup, Demand, Interaction, ServiceRequest, User
+from service.models import AccessGroup, Block, Demand, Interaction, Location, ServiceRequest, User
 from service.views import create_request_record
 
 
@@ -79,6 +79,10 @@ class Command(BaseCommand):
             ]:
                 Demand.objects.update_or_create(nome=nome, defaults={"prazo": prazo})
 
+            local_icet, _ = Location.objects.update_or_create(nome="ICET", defaults={"active": True})
+            for bloco in ["Bloco A", "Bloco B", "Bloco C"]:
+                Block.objects.update_or_create(location=local_icet, nome=bloco, defaults={"active": True})
+
             if not ServiceRequest.objects.exists():
                 samples = [
                     (
@@ -88,8 +92,9 @@ class Command(BaseCommand):
                             "siape": "2314578",
                             "email": "mariana.costa@ufam.edu.br",
                             "perfil": "Docente",
+                            "local": "ICET",
                             "bloco": "Bloco B",
-                            "sala": "Laboratório 03",
+                            "sala": "103",
                             "categoria": "Manutenção de Hardware",
                             "descricao": "Computador não liga após queda de energia.",
                             "status": "Aberto",
@@ -102,8 +107,9 @@ class Command(BaseCommand):
                             "siape": "1987643",
                             "email": "rafael.lima@ufam.edu.br",
                             "perfil": "Técnico Administrativo em Educação",
+                            "local": "ICET",
                             "bloco": "Bloco A",
-                            "sala": "Secretaria",
+                            "sala": "101",
                             "categoria": "Redes de Computadores",
                             "descricao": "Impressora de rede sem comunicação.",
                             "status": "Em Atendimento",
@@ -116,8 +122,9 @@ class Command(BaseCommand):
                             "siape": "2245789",
                             "email": "ana.beatriz@ufam.edu.br",
                             "perfil": "Docente",
+                            "local": "ICET",
                             "bloco": "Bloco C",
-                            "sala": "Sala 12",
+                            "sala": "112",
                             "categoria": "Suporte Audiovisual",
                             "descricao": "Projetor apresenta falha intermitente.",
                             "status": "Resolvido",

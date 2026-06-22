@@ -14,7 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.hashers import check_password, make_password
 
-from .models import AccessGroup, Attachment, Demand, Interaction, PasswordReset, ServiceRequest, SessionToken, User
+from .models import AccessGroup, Attachment, Block, Demand, Interaction, Location, PasswordReset, ServiceRequest, SessionToken, User
 
 
 ALLOWED_UPLOAD_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".doc", ".docx"}
@@ -77,6 +77,10 @@ def valid_siape(siape):
     return bool(re.fullmatch(r"\d{7}", str(siape or "")))
 
 
+def valid_room(room):
+    return bool(re.fullmatch(r"\d{1,3}", str(room or "")))
+
+
 def group_id_for_cargo(cargo):
     normalized = str(cargo or "").lower()
     if "docente" in normalized or "professor" in normalized:
@@ -105,6 +109,27 @@ def demand_dict(demand):
         "prazo": demand.prazo,
         "active": demand.active,
         "created_at": format_dt(demand.created_at),
+    }
+
+
+def location_dict(location):
+    return {
+        "id": location.id,
+        "nome": location.nome,
+        "active": location.active,
+        "created_at": format_dt(location.created_at),
+    }
+
+
+def block_dict(block):
+    return {
+        "id": block.id,
+        "nome": block.nome,
+        "location_id": block.location_id,
+        "local_id": block.location_id,
+        "local_nome": block.location.nome if block.location_id else "",
+        "active": block.active,
+        "created_at": format_dt(block.created_at),
     }
 
 
@@ -142,6 +167,7 @@ def request_dict(item, demand_deadlines=None):
         "siape": item.siape,
         "email": item.email,
         "perfil": item.perfil,
+        "local": item.local,
         "bloco": item.bloco,
         "sala": item.sala,
         "categoria": item.categoria,
@@ -229,8 +255,14 @@ def require_user(request):
 
 def admin_payload(user):
     demand_items = list(Demand.objects.all())
+    location_items = list(Location.objects.all())
+    block_items = list(Block.objects.select_related("location").all())
     visible_demands = demand_items if is_admin(user) else [item for item in demand_items if item.active]
+    visible_locations = location_items if is_admin(user) else [item for item in location_items if item.active]
+    visible_blocks = block_items if is_admin(user) else [item for item in block_items if item.active and item.location.active]
     demands = [demand_dict(item) for item in visible_demands]
+    locations = [location_dict(item) for item in visible_locations]
+    blocks = [block_dict(item) for item in visible_blocks]
     demand_deadlines = {item.nome: item.prazo for item in demand_items}
     groups = [group_dict(item) for item in AccessGroup.objects.all()]
     users = [user_dict(item) for item in User.objects.select_related("group").order_by("-approval_status", "nome")]
@@ -256,6 +288,8 @@ def admin_payload(user):
         "groups": groups,
         "users": users,
         "demands": demands,
+        "locations": locations,
+        "blocks": blocks,
         "requests": requests,
     }
 
@@ -326,7 +360,13 @@ def write_rejection_email(user):
 @csrf_exempt
 @require_http_methods(["GET"])
 def public_bootstrap(request):
-    return api_response({"demands": [demand_dict(item) for item in Demand.objects.filter(active=True)]})
+    return api_response(
+        {
+            "demands": [demand_dict(item) for item in Demand.objects.filter(active=True)],
+            "locations": [location_dict(item) for item in Location.objects.filter(active=True)],
+            "blocks": [block_dict(item) for item in Block.objects.select_related("location").filter(active=True, location__active=True)],
+        }
+    )
 
 
 @csrf_exempt
@@ -530,6 +570,7 @@ def create_request_record(payload, owner_user=None):
         siape=payload["siape"],
         email=payload["email"],
         perfil=payload["perfil"],
+        local=payload["local"],
         bloco=payload["bloco"],
         sala=payload["sala"],
         categoria=payload["categoria"],
@@ -553,12 +594,16 @@ def requests_collection(request):
     payload["email"] = user.email
     payload["perfil"] = user.group.nome if user.group_id else ""
     owner_user = user
-    required = ["nome", "siape", "email", "perfil", "bloco", "sala", "categoria", "descricao"]
+    required = ["nome", "siape", "email", "perfil", "local", "bloco", "sala", "categoria", "descricao"]
     missing = [field for field in required if not str(payload.get(field, "")).strip()]
     if missing:
         return api_response({"detail": f"Campos obrigatórios ausentes: {', '.join(missing)}"}, 422)
     if not valid_siape(payload["siape"]):
         return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
+    if not valid_room(payload["sala"]):
+        return api_response({"detail": "A sala deve conter somente números, com até 3 dígitos."}, 422)
+    if not Block.objects.filter(nome=payload["bloco"], location__nome=payload["local"], active=True, location__active=True).exists():
+        return api_response({"detail": "Informe um bloco ativo vinculado ao local selecionado."}, 422)
     with transaction.atomic():
         item = create_request_record(payload, owner_user)
         Interaction.objects.create(
@@ -952,3 +997,107 @@ def update_demand(request, demand_id):
     except IntegrityError:
         return api_response({"detail": "Já existe uma demanda com este nome."}, 422)
     return api_response({"item": demand_dict(item)})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def locations_collection(request):
+    user, response = require_user(request)
+    if response:
+        return response
+    if not is_admin(user):
+        return api_response({"detail": "Seu grupo não tem permissão para cadastrar locais."}, 403)
+    payload = read_json(request)
+    try:
+        item = Location.objects.create(nome=payload["nome"].strip())
+    except (KeyError, IntegrityError) as error:
+        return api_response({"detail": f"Dados inválidos: {error}"}, 422)
+    return api_response({"item": location_dict(item)}, 201)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def update_location(request, location_id):
+    user, response = require_user(request)
+    if response:
+        return response
+    if not is_admin(user):
+        return api_response({"detail": "Seu grupo não tem permissão para atualizar locais."}, 403)
+    item = Location.objects.filter(id=location_id).first()
+    if not item:
+        return api_response({"detail": "Local não encontrado."}, 404)
+    payload = read_json(request)
+    old_name = item.nome
+    item.nome = payload.get("nome", item.nome).strip()
+    item.active = bool(payload.get("active", item.active))
+    if not item.nome:
+        return api_response({"detail": "Informe o nome do local."}, 422)
+    try:
+        with transaction.atomic():
+            item.save(update_fields=["nome", "active"])
+            if old_name != item.nome:
+                ServiceRequest.objects.filter(local=old_name).update(local=item.nome)
+    except IntegrityError:
+        return api_response({"detail": "Já existe um local com este nome."}, 422)
+    return api_response({"item": location_dict(item)})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def blocks_collection(request):
+    user, response = require_user(request)
+    if response:
+        return response
+    if not is_admin(user):
+        return api_response({"detail": "Seu grupo não tem permissão para cadastrar blocos."}, 403)
+    payload = read_json(request)
+    nome = payload.get("nome", "").strip()
+    try:
+        location_id = int(payload.get("local_id") or payload.get("location_id") or 0)
+    except (TypeError, ValueError):
+        return api_response({"detail": "Local informado não encontrado."}, 422)
+    if not nome or not location_id:
+        return api_response({"detail": "Informe o nome do bloco e o local."}, 422)
+    if not Location.objects.filter(id=location_id, active=True).exists():
+        return api_response({"detail": "Local informado não encontrado."}, 422)
+    try:
+        item = Block.objects.select_related("location").create(nome=nome, location_id=location_id)
+    except IntegrityError:
+        return api_response({"detail": "Já existe um bloco com este nome para o local informado."}, 422)
+    item = Block.objects.select_related("location").get(id=item.id)
+    return api_response({"item": block_dict(item)}, 201)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def update_block(request, block_id):
+    user, response = require_user(request)
+    if response:
+        return response
+    if not is_admin(user):
+        return api_response({"detail": "Seu grupo não tem permissão para atualizar blocos."}, 403)
+    item = Block.objects.select_related("location").filter(id=block_id).first()
+    if not item:
+        return api_response({"detail": "Bloco não encontrado."}, 404)
+    payload = read_json(request)
+    old_location = item.location.nome
+    old_name = item.nome
+    item.nome = payload.get("nome", item.nome).strip()
+    try:
+        item.location_id = int(payload.get("local_id") or payload.get("location_id") or item.location_id)
+    except (TypeError, ValueError):
+        return api_response({"detail": "Local informado não encontrado."}, 422)
+    item.active = bool(payload.get("active", item.active))
+    if not item.nome:
+        return api_response({"detail": "Informe o nome do bloco."}, 422)
+    if not Location.objects.filter(id=item.location_id, active=True).exists():
+        return api_response({"detail": "Local informado não encontrado ou desativado."}, 422)
+    try:
+        with transaction.atomic():
+            item.save(update_fields=["nome", "location", "active"])
+            item = Block.objects.select_related("location").get(id=item.id)
+            if old_location != item.location.nome or old_name != item.nome:
+                ServiceRequest.objects.filter(local=old_location, bloco=old_name).update(local=item.location.nome, bloco=item.nome)
+    except IntegrityError:
+        return api_response({"detail": "Já existe um bloco com este nome para o local informado."}, 422)
+    return api_response({"item": block_dict(item)})

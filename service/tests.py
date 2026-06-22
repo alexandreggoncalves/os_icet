@@ -8,7 +8,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from service.models import AccessGroup, Demand, PasswordReset, ServiceRequest, SessionToken, User
+from service.models import AccessGroup, Block, Demand, Location, PasswordReset, ServiceRequest, SessionToken, User
 from service.views import format_dt
 
 
@@ -16,6 +16,9 @@ class UserRegistrationTests(TestCase):
     def setUp(self):
         self.admin_group = AccessGroup.objects.create(id=1, nome="Administradores")
         self.docente_group = AccessGroup.objects.create(id=2, nome="Docentes")
+        self.location, _ = Location.objects.get_or_create(nome="ICET")
+        self.block_a, _ = Block.objects.get_or_create(location=self.location, nome="Bloco A")
+        self.block_b, _ = Block.objects.get_or_create(location=self.location, nome="Bloco B")
         self.admin = User.objects.create(
             nome="Administrador",
             login="admin",
@@ -290,8 +293,9 @@ class UserRegistrationTests(TestCase):
             data=json.dumps(
                 {
                     "siape": "9999999",
+                    "local": "ICET",
                     "bloco": "Bloco A",
-                    "sala": "Sala 1",
+                    "sala": "101",
                     "categoria": "Suporte Audiovisual",
                     "descricao": "Teste de SIAPE cadastrado.",
                 }
@@ -311,8 +315,9 @@ class UserRegistrationTests(TestCase):
                 "siape": "9999999",
                 "email": "outro@ufam.edu.br",
                 "perfil": "Outro grupo",
+                "local": "ICET",
                 "bloco": "Bloco B",
-                "sala": "Sala 2",
+                "sala": "102",
                 "categoria": "Suporte Audiovisual",
                 "descricao": "Chamado aberto pelo administrador.",
             },
@@ -326,6 +331,22 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(item.siape, self.admin.siape)
         self.assertEqual(item.email, self.admin.email)
         self.assertEqual(item.perfil, "Administradores")
+        self.assertEqual(item.local, "ICET")
+
+    def test_request_requires_numeric_room_with_up_to_three_digits(self):
+        response = self.post_json(
+            "/api/requests",
+            {
+                "local": "ICET",
+                "bloco": "Bloco B",
+                "sala": "Sala 2",
+                "categoria": "Suporte Audiovisual",
+                "descricao": "Sala inválida.",
+            },
+            authenticated=True,
+        )
+
+        self.assertEqual(response.status_code, 422)
 
     def test_seed_assigns_placeholder_siape_to_master_admin(self):
         call_command("seed_data", verbosity=0)
@@ -415,6 +436,7 @@ class UserRegistrationTests(TestCase):
             siape="1234567",
             email="solicitante@ufam.edu.br",
             perfil="Docente",
+            local="ICET",
             bloco="A",
             sala="1",
             categoria=demand.nome,
@@ -439,3 +461,40 @@ class UserRegistrationTests(TestCase):
         )
         self.assertEqual(delete_response.status_code, 405)
         self.assertTrue(Demand.objects.filter(id=demand.id).exists())
+
+    def test_location_and_block_management(self):
+        location_response = self.post_json("/api/locations", {"nome": "Campus Teste"}, authenticated=True)
+        self.assertEqual(location_response.status_code, 201)
+        location = Location.objects.get(nome="Campus Teste")
+
+        block_response = self.post_json(
+            "/api/blocks",
+            {"nome": "Bloco Novo", "local_id": location.id},
+            authenticated=True,
+        )
+        self.assertEqual(block_response.status_code, 201)
+        block = Block.objects.get(nome="Bloco Novo", location=location)
+
+        service_request = ServiceRequest.objects.create(
+            protocolo="OS-TESTE-002",
+            nome="Solicitante",
+            siape="7654321",
+            email="solicitante@ufam.edu.br",
+            perfil="Docente",
+            local=location.nome,
+            bloco=block.nome,
+            sala="12",
+            categoria="Suporte",
+            descricao="Solicitação histórica",
+        )
+
+        update_location_response = self.put_json(f"/api/locations/{location.id}", {"nome": "Campus Atualizado", "active": True})
+        self.assertEqual(update_location_response.status_code, 200)
+        update_block_response = self.put_json(
+            f"/api/blocks/{block.id}",
+            {"nome": "Bloco Atualizado", "local_id": location.id, "active": True},
+        )
+        self.assertEqual(update_block_response.status_code, 200)
+        service_request.refresh_from_db()
+        self.assertEqual(service_request.local, "Campus Atualizado")
+        self.assertEqual(service_request.bloco, "Bloco Atualizado")
