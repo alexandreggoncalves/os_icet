@@ -8,7 +8,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from service.models import AccessGroup, Block, Demand, Location, PasswordReset, ServiceRequest, SessionToken, User
+from service.models import AccessGroup, Block, Demand, Interaction, Location, PasswordReset, ServiceRequest, SessionToken, User
 from service.views import format_dt
 
 
@@ -45,6 +45,24 @@ class UserRegistrationTests(TestCase):
             content_type="application/json",
             HTTP_AUTHORIZATION="Bearer admin-test-token",
         )
+
+    def make_request(self, **kwargs):
+        payload = {
+            "protocolo": f"OS-TESTE-{ServiceRequest.objects.count() + 1:03d}",
+            "owner_user": self.admin,
+            "nome": "Solicitante",
+            "siape": "1234567",
+            "email": "solicitante@ufam.edu.br",
+            "perfil": "Docente",
+            "local": "ICET",
+            "bloco": "Bloco A",
+            "sala": "101",
+            "categoria": "Suporte Audiovisual",
+            "descricao": "Chamado de teste.",
+            "status": "Aberto",
+        }
+        payload.update(kwargs)
+        return ServiceRequest.objects.create(**payload)
 
     def test_first_access_derives_email_from_login(self):
         response = self.post_json(
@@ -347,6 +365,49 @@ class UserRegistrationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 422)
+
+    def test_open_request_cannot_be_resolved_before_in_progress(self):
+        item = self.make_request(status="Aberto")
+
+        response = self.put_json(f"/api/requests/{item.id}/status", {"status": "Resolvido"})
+
+        self.assertEqual(response.status_code, 422)
+        item.refresh_from_db()
+        self.assertEqual(item.status, "Aberto")
+
+    def test_open_request_requires_admin_assignment_to_enter_progress(self):
+        item = self.make_request(status="Aberto")
+
+        response = self.put_json(f"/api/requests/{item.id}/status", {"status": "Em Atendimento"})
+
+        self.assertEqual(response.status_code, 422)
+        item.refresh_from_db()
+        self.assertEqual(item.status, "Aberto")
+
+    def test_open_request_enters_progress_with_assigned_admin_and_interaction(self):
+        item = self.make_request(status="Aberto")
+
+        response = self.put_json(
+            f"/api/requests/{item.id}/status",
+            {"status": "Em Atendimento", "assigned_user_id": self.admin.id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        item.refresh_from_db()
+        self.assertEqual(item.status, "Em Atendimento")
+        self.assertEqual(item.assigned_user, self.admin)
+        interaction = Interaction.objects.get(request=item)
+        self.assertEqual(interaction.tipo, "status")
+        self.assertIn(self.admin.nome, interaction.mensagem)
+
+    def test_in_progress_request_cannot_return_to_open(self):
+        item = self.make_request(status="Em Atendimento", assigned_user=self.admin)
+
+        response = self.put_json(f"/api/requests/{item.id}/status", {"status": "Aberto"})
+
+        self.assertEqual(response.status_code, 422)
+        item.refresh_from_db()
+        self.assertEqual(item.status, "Em Atendimento")
 
     def test_seed_assigns_placeholder_siape_to_master_admin(self):
         call_command("seed_data", verbosity=0)

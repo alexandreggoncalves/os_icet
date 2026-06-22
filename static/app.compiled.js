@@ -94,9 +94,11 @@ function App() {
   const [blocks, setBlocks] = useState([]);
   const [permissions, setPermissions] = useState({});
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [assignmentModal, setAssignmentModal] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
   const currentPage = useMemo(() => pages.find(item => item.id === page), [page]);
+  const adminUsers = users.filter(item => item.active && item.approval_status === "approved" && item.grupo_nome === "Administradores");
   const authed = Boolean(token);
   const pendingUsers = users.filter(item => item.approval_status === "pending");
   function navigate(nextPage) {
@@ -257,6 +259,25 @@ function App() {
   }
   async function updateRequestStatus(id, payload) {
     const currentRequest = requests.find(item => item.id === id);
+    if (currentRequest?.status === "Aberto" && payload.status === "Resolvido") {
+      notify("Solicitacao em aberto deve passar por Em Atendimento antes de ser resolvida.", "warning");
+      return false;
+    }
+    if (currentRequest?.status === "Em Atendimento" && payload.status === "Aberto") {
+      notify("Solicitacao em atendimento nao pode retornar para Aberto.", "warning");
+      return false;
+    }
+    if (currentRequest?.status === "Aberto" && payload.status === "Em Atendimento" && !payload.assigned_user_id) {
+      if (!adminUsers.length) {
+        notify("Nenhum usuario ativo do grupo Administradores disponivel para atribuicao.", "warning");
+        return false;
+      }
+      setAssignmentModal({
+        request: currentRequest,
+        status: payload.status
+      });
+      return false;
+    }
     if (payload.status === "Resolvido" && !isRequestResolved(currentRequest?.status || "")) {
       const confirmed = window.confirm("Ao marcar esta solicitação como Resolvido, ela ficará somente para leitura e não poderá mais receber interações, edições ou alterações. Deseja continuar?");
       if (!confirmed) return false;
@@ -356,6 +377,15 @@ function App() {
       notify(error.message, "danger");
       return false;
     }
+  }
+  async function confirmAssignment(assignedUserId) {
+    if (!assignmentModal) return false;
+    const ok = await updateRequestStatus(assignmentModal.request.id, {
+      status: "Em Atendimento",
+      assigned_user_id: assignedUserId
+    });
+    if (ok) setAssignmentModal(null);
+    return ok;
   }
   async function rejectUser(userId) {
     try {
@@ -512,16 +542,23 @@ function App() {
     requests: requests,
     updateRequestStatus: updateRequestStatus,
     permissions: permissions,
+    adminUsers: adminUsers,
     openRequest: openRequest
   }), /*#__PURE__*/React.createElement(RequestDetail, {
     request: selectedRequest,
     permissions: permissions,
     user: user,
     updateRequestStatus: updateRequestStatus,
+    adminUsers: adminUsers,
     sendInteraction: sendInteraction,
     editInteraction: editInteraction,
     deleteAttachment: deleteAttachment,
     onClose: () => setSelectedRequest(null)
+  }), /*#__PURE__*/React.createElement(AssignmentModal, {
+    state: assignmentModal,
+    adminUsers: adminUsers,
+    onConfirm: confirmAssignment,
+    onCancel: () => setAssignmentModal(null)
   })), ["relatorios", "relatorios-anual", "relatorios-geral"].includes(page) && /*#__PURE__*/React.createElement(Protected, {
     authed: authed,
     allowed: permissions.can_reports,
@@ -1320,6 +1357,7 @@ function ConsultRequests({
   requests,
   updateRequestStatus,
   permissions,
+  adminUsers,
   openRequest
 }) {
   const [query, setQuery] = useState("");
@@ -1390,6 +1428,7 @@ function ConsultRequests({
   }, "Seu grupo possui consulta limitada: somente solicitações vinculadas ao seu usuário/e-mail aparecem aqui."), /*#__PURE__*/React.createElement(RequestsTable, {
     requests: paginated,
     updateRequestStatus: updateRequestStatus,
+    adminUsers: adminUsers,
     editable: permissions.can_update_status,
     openRequest: openRequest
   }), /*#__PURE__*/React.createElement(PaginationControls, {
@@ -2288,6 +2327,11 @@ function statusCardClass(status = "") {
 function isRequestResolved(status = "") {
   return status.trim().toLowerCase() === "resolvido";
 }
+function statusOptionsFor(status = "") {
+  if (status === "Aberto") return ["Aberto", "Em Atendimento"];
+  if (status === "Em Atendimento") return ["Em Atendimento", "Resolvido"];
+  return [status || "Aberto"];
+}
 function scrollToRequestDetail() {
   document.getElementById("request-detail")?.scrollIntoView({
     behavior: "smooth",
@@ -2372,7 +2416,9 @@ function RequestDetail({
     onChange: event => updateRequestStatus(request.id, {
       status: event.target.value
     })
-  }, /*#__PURE__*/React.createElement("option", null, "Aberto"), /*#__PURE__*/React.createElement("option", null, "Em Atendimento"), /*#__PURE__*/React.createElement("option", null, "Resolvido")), /*#__PURE__*/React.createElement("button", {
+  }, statusOptionsFor(request.status).map(option => /*#__PURE__*/React.createElement("option", {
+    key: option
+  }, option))), /*#__PURE__*/React.createElement("button", {
     className: "btn btn-icet",
     type: "button",
     onClick: () => openRequestPdfWindow(request)
@@ -2402,6 +2448,9 @@ function RequestDetail({
   }), /*#__PURE__*/React.createElement(Info, {
     label: "Sala",
     value: request.sala
+  }), request.assigned_user_nome && /*#__PURE__*/React.createElement(Info, {
+    label: "Responsavel",
+    value: request.assigned_user_nome
   })), /*#__PURE__*/React.createElement("div", {
     className: "request-card p-3 mb-4"
   }, /*#__PURE__*/React.createElement("h3", {
@@ -3030,6 +3079,60 @@ function openReportsPdfWindow(requests, filters) {
   printWindow.document.write(html);
   printWindow.document.close();
 }
+function AssignmentModal({
+  state,
+  adminUsers,
+  onConfirm,
+  onCancel
+}) {
+  const [selectedUserId, setSelectedUserId] = useState("");
+  useEffect(() => {
+    if (state) setSelectedUserId(String(adminUsers[0]?.id || ""));
+  }, [state, adminUsers]);
+  if (!state) return null;
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "modal d-block",
+    tabIndex: "-1",
+    role: "dialog"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-dialog modal-dialog-centered"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-header"
+  }, /*#__PURE__*/React.createElement("h5", {
+    className: "modal-title"
+  }, "Atribuir atendimento"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-close",
+    "aria-label": "Fechar",
+    onClick: onCancel
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "modal-body"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "mb-3"
+  }, "Selecione o usuario do grupo Administradores que ficara responsavel pelo atendimento da solicitacao ", /*#__PURE__*/React.createElement("strong", null, state.request.protocolo), "."), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: selectedUserId,
+    onChange: event => setSelectedUserId(event.target.value)
+  }, adminUsers.map(item => /*#__PURE__*/React.createElement("option", {
+    key: item.id,
+    value: item.id
+  }, item.nome, " - ", item.login)))), /*#__PURE__*/React.createElement("div", {
+    className: "modal-footer"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-outline-secondary",
+    onClick: onCancel
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-icet",
+    disabled: !selectedUserId,
+    onClick: () => onConfirm(Number(selectedUserId))
+  }, "Confirmar"))))), /*#__PURE__*/React.createElement("div", {
+    className: "modal-backdrop fade show"
+  }));
+}
 function RequestsTable({
   requests,
   compact = false,
@@ -3064,7 +3167,9 @@ function RequestsTable({
     onChange: event => updateRequestStatus(request.id, {
       status: event.target.value
     })
-  }, /*#__PURE__*/React.createElement("option", null, "Aberto"), /*#__PURE__*/React.createElement("option", null, "Em Atendimento"), /*#__PURE__*/React.createElement("option", null, "Resolvido"))))))));
+  }, statusOptionsFor(request.status).map(option => /*#__PURE__*/React.createElement("option", {
+    key: option
+  }, option)))))))));
 }
 function PaginationControls({
   currentPage,

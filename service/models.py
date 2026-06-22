@@ -87,6 +87,14 @@ class Block(models.Model):
 class ServiceRequest(models.Model):
     protocolo = models.CharField(max_length=32, unique=True)
     owner_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="owner_user_id")
+    assigned_user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assigned_requests",
+        db_column="assigned_user_id",
+    )
     nome = models.CharField(max_length=180)
     siape = models.CharField(max_length=40)
     email = models.EmailField()

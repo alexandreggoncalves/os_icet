@@ -163,6 +163,8 @@ def request_dict(item, demand_deadlines=None):
         "id": item.id,
         "protocolo": item.protocolo,
         "owner_user_id": item.owner_user_id,
+        "assigned_user_id": item.assigned_user_id,
+        "assigned_user_nome": item.assigned_user.nome if item.assigned_user_id else "",
         "nome": item.nome,
         "siape": item.siape,
         "email": item.email,
@@ -230,6 +232,22 @@ def is_resolved_status(status):
     return str(status or "").strip().lower() == "resolvido"
 
 
+def normalized_status(status):
+    return str(status or "").strip().casefold()
+
+
+def is_open_status(status):
+    return normalized_status(status) == "aberto"
+
+
+def is_in_progress_status(status):
+    return normalized_status(status) == "em atendimento"
+
+
+def is_allowed_status(status):
+    return status in ["Aberto", "Em Atendimento", "Resolvido"]
+
+
 def can_access_request(user, item):
     return bool(is_admin(user) or item.owner_user_id == user.id or item.email == user.email)
 
@@ -267,11 +285,11 @@ def admin_payload(user):
     groups = [group_dict(item) for item in AccessGroup.objects.all()]
     users = [user_dict(item) for item in User.objects.select_related("group").order_by("-approval_status", "nome")]
     if is_admin(user):
-        requests = [request_dict(item, demand_deadlines) for item in ServiceRequest.objects.all()]
+        requests = [request_dict(item, demand_deadlines) for item in ServiceRequest.objects.select_related("assigned_user").all()]
     else:
         requests = [
             request_dict(item, demand_deadlines)
-            for item in ServiceRequest.objects.filter(owner_user=user) | ServiceRequest.objects.filter(email=user.email)
+            for item in (ServiceRequest.objects.filter(owner_user=user) | ServiceRequest.objects.filter(email=user.email)).select_related("assigned_user")
         ]
         groups = []
         users = []
@@ -623,7 +641,7 @@ def request_detail_view(request, request_id):
     user, response = require_user(request)
     if response:
         return response
-    item = ServiceRequest.objects.prefetch_related("interactions__attachments").filter(id=request_id).first()
+    item = ServiceRequest.objects.select_related("assigned_user").prefetch_related("interactions__attachments").filter(id=request_id).first()
     if not item:
         return api_response({"detail": "Solicitação não encontrada."}, 404)
     if not can_access_request(user, item):
@@ -639,14 +657,59 @@ def request_status(request, request_id):
         return response
     if not is_admin(user):
         return api_response({"detail": "Seu grupo não tem permissão para atualizar status."}, 403)
-    item = ServiceRequest.objects.filter(id=request_id).first()
+    item = ServiceRequest.objects.select_related("assigned_user").filter(id=request_id).first()
     if not item:
         return api_response({"detail": "Solicitação não encontrada."}, 404)
     if is_resolved_status(item.status):
         return api_response({"detail": "Solicitação resolvida fica disponível apenas para leitura e impressão."}, 403)
-    item.status = read_json(request).get("status", item.status)
+    payload = read_json(request)
+    current_status = item.status
+    next_status = payload.get("status", item.status)
+    if not is_allowed_status(next_status):
+        return api_response({"detail": "Status invalido."}, 422)
+    if current_status == next_status:
+        return api_response({"request": request_dict(item)})
+    if is_open_status(current_status) and is_resolved_status(next_status):
+        return api_response({"detail": "Solicitacao em aberto deve passar por Em Atendimento antes de ser resolvida."}, 422)
+    if is_in_progress_status(current_status) and is_open_status(next_status):
+        return api_response({"detail": "Solicitacao em atendimento nao pode retornar para Aberto."}, 422)
+    assigned_user = None
+    update_fields = ["status", "updated_at"]
+    if is_open_status(current_status) and is_in_progress_status(next_status):
+        assigned_user_id = payload.get("assigned_user_id")
+        if not assigned_user_id:
+            return api_response({"detail": "Selecione o usuario administrador responsavel pelo atendimento."}, 422)
+        assigned_user = User.objects.select_related("group").filter(
+            id=assigned_user_id,
+            active=True,
+            approval_status="approved",
+            group__nome="Administradores",
+        ).first()
+        if not assigned_user:
+            return api_response({"detail": "Usuario responsavel deve pertencer ao grupo Administradores."}, 422)
+        item.assigned_user = assigned_user
+        update_fields.append("assigned_user")
+    item.status = next_status
     item.updated_at = timezone.now()
-    item.save(update_fields=["status", "updated_at"])
+    item.save(update_fields=update_fields)
+    if assigned_user:
+        Interaction.objects.create(
+            request=item,
+            user=user,
+            autor_nome=user.nome,
+            autor_grupo=user.group.nome if user.group_id else "",
+            mensagem=f"Status alterado para Em Atendimento. Atendimento atribuido a {assigned_user.nome}.",
+            tipo="status",
+        )
+    elif is_in_progress_status(current_status) and is_resolved_status(next_status):
+        Interaction.objects.create(
+            request=item,
+            user=user,
+            autor_nome=user.nome,
+            autor_grupo=user.group.nome if user.group_id else "",
+            mensagem="Status alterado para Resolvido.",
+            tipo="status",
+        )
     return api_response({"request": request_dict(item)})
 
 
