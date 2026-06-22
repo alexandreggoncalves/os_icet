@@ -1363,15 +1363,18 @@ function ConsultRequests({
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [requesterFilter, setRequesterFilter] = useState("");
+  const [assignedUserFilter, setAssignedUserFilter] = useState("Todos");
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const statuses = ["Todos", ...Array.from(new Set(requests.map(item => item.status))).sort()];
+  const assignedUsers = ["Todos", ...Array.from(new Set(requests.map(item => item.assigned_user_nome).filter(Boolean))).sort()];
   const filtered = requests.filter(item => {
-    const haystack = `${item.protocolo} ${item.nome} ${item.localizacao} ${item.status}`.toLowerCase();
+    const haystack = `${item.protocolo} ${item.nome} ${item.localizacao} ${item.status} ${item.assigned_user_nome || ""}`.toLowerCase();
     const matchesQuery = haystack.includes(query.toLowerCase());
     const matchesStatus = statusFilter === "Todos" || item.status === statusFilter;
     const matchesRequester = item.nome.toLowerCase().includes(requesterFilter.toLowerCase());
-    return matchesQuery && matchesStatus && matchesRequester;
+    const matchesAssignedUser = assignedUserFilter === "Todos" || item.assigned_user_nome === assignedUserFilter;
+    return matchesQuery && matchesStatus && matchesRequester && matchesAssignedUser;
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -1379,7 +1382,7 @@ function ConsultRequests({
   const paginated = filtered.slice(start, start + pageSize);
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, statusFilter, requesterFilter, pageSize]);
+  }, [query, statusFilter, requesterFilter, assignedUserFilter, pageSize]);
   return /*#__PURE__*/React.createElement("section", {
     className: "surface p-3 p-lg-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1401,6 +1404,12 @@ function ConsultRequests({
     options: statuses,
     col: "col-md-3 col-lg-2"
   }), /*#__PURE__*/React.createElement(Select, {
+    label: "Usuario atribuido",
+    value: assignedUserFilter,
+    onChange: setAssignedUserFilter,
+    options: assignedUsers,
+    col: "col-md-4 col-lg-2"
+  }), /*#__PURE__*/React.createElement(Select, {
     label: "Itens por página",
     value: String(pageSize),
     onChange: value => setPageSize(Number(value)),
@@ -1415,6 +1424,7 @@ function ConsultRequests({
       setQuery("");
       setRequesterFilter("");
       setStatusFilter("Todos");
+      setAssignedUserFilter("Todos");
       setPageSize(10);
     }
   }, "Limpar")), /*#__PURE__*/React.createElement("div", {
@@ -1443,9 +1453,11 @@ function Reports({
 }) {
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [userFilter, setUserFilter] = useState("");
+  const [assignedUserFilter, setAssignedUserFilter] = useState("Todos");
   const [yearFilter, setYearFilter] = useState("");
   const statuses = ["Todos", ...Array.from(new Set(requests.map(item => item.status))).sort()];
   const users = Array.from(new Set(requests.map(item => item.nome).filter(Boolean))).sort();
+  const assignedUsers = ["Todos", ...Array.from(new Set(requests.map(item => item.assigned_user_nome).filter(Boolean))).sort()];
   const years = Array.from(new Set(requests.map(item => new Date(item.created_at).getFullYear()).filter(Boolean))).sort((a, b) => b - a);
   const selectedYear = yearFilter || String(years[0] || new Date().getFullYear());
   const reportMeta = {
@@ -1469,8 +1481,9 @@ function Reports({
     const matchesStatus = statusFilter === "Todos" || item.status === statusFilter;
     const normalizedUserFilter = userFilter.trim().toLowerCase();
     const matchesUser = !normalizedUserFilter || item.nome.toLowerCase().includes(normalizedUserFilter);
+    const matchesAssignedUser = assignedUserFilter === "Todos" || item.assigned_user_nome === assignedUserFilter;
     const matchesYear = type !== "annual" || String(new Date(item.created_at).getFullYear()) === String(selectedYear);
-    return matchesStatus && matchesUser && matchesYear;
+    return matchesStatus && matchesUser && matchesAssignedUser && matchesYear;
   });
   const byStatus = ["Aberto", "Em Atendimento", "Resolvido"].map(status => ({
     status,
@@ -1479,6 +1492,7 @@ function Reports({
   const reportFilters = {
     statusFilter,
     userFilter,
+    assignedUserFilter,
     yearFilter: type === "annual" ? selectedYear : "",
     reportType: type,
     reportTitle: reportMeta.title
@@ -1507,6 +1521,12 @@ function Reports({
     onChange: setUserFilter,
     options: users,
     col: "col-md-4 col-lg-3"
+  }), /*#__PURE__*/React.createElement(Select, {
+    label: "Usuario atribuido",
+    value: assignedUserFilter,
+    onChange: setAssignedUserFilter,
+    options: assignedUsers,
+    col: "col-md-4 col-lg-3"
   }), type === "annual" && /*#__PURE__*/React.createElement(Select, {
     label: "Ano",
     value: selectedYear,
@@ -1521,6 +1541,7 @@ function Reports({
     onClick: () => {
       setStatusFilter("Todos");
       setUserFilter("");
+      setAssignedUserFilter("Todos");
       setYearFilter("");
     }
   }, "Limpar")), /*#__PURE__*/React.createElement("div", {
@@ -2859,13 +2880,15 @@ function csvValue(value = "") {
 function downloadReportsCsv(requests, filters) {
   const headers = ["Protocolo", "Solicitante", "E-mail", "SIAPE", "Perfil", "Demanda", "Local", "Localização", "Bloco", "Sala", "Status", "Criada em", "Atualizada em", "Descrição"];
   const rows = requests.map(request => [request.protocolo, request.nome, request.email, request.siape, request.perfil, request.categoria, request.local, request.localizacao, request.bloco, request.sala, request.status, formatDateTime(request.created_at), formatDateTime(request.updated_at), request.descricao]);
+  headers.splice(11, 0, "Usuario atribuido");
+  rows.forEach((row, index) => row.splice(11, 0, requests[index].assigned_user_nome || ""));
   const content = [headers, ...rows].map(row => row.map(csvValue).join(";")).join("\r\n");
   const blob = new Blob([`\uFEFF${content}`], {
     type: "text/csv;charset=utf-8"
   });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const suffix = [filters.reportType || "relatorio", filters.yearFilter, filters.statusFilter !== "Todos" ? filters.statusFilter : "", filters.userFilter !== "Todos" ? filters.userFilter : ""].filter(Boolean).join("-").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  const suffix = [filters.reportType || "relatorio", filters.yearFilter, filters.statusFilter !== "Todos" ? filters.statusFilter : "", filters.userFilter !== "Todos" ? filters.userFilter : "", filters.assignedUserFilter !== "Todos" ? filters.assignedUserFilter : ""].filter(Boolean).join("-").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
   link.href = url;
   link.download = `os-icet-${suffix || "relatorio"}.csv`;
   document.body.appendChild(link);
@@ -2892,11 +2915,13 @@ function openReportsPdfWindow(requests, filters) {
       <td>${escapeHtml(request.categoria)}</td>
       <td>${escapeHtml(request.localizacao)}</td>
       <td>${escapeHtml(request.status)}</td>
+      <td>${escapeHtml(request.assigned_user_nome || "")}</td>
       <td>${escapeHtml(formatDateTime(request.created_at))}</td>
       <td>${escapeHtml(formatDateTime(request.updated_at))}</td>
     </tr>
   `).join("");
   const userLabel = filters.userFilter || "Todos";
+  const assignedUserLabel = filters.assignedUserFilter || "Todos";
   const reportTitle = filters.reportTitle || "Relatório de solicitações";
   const reportSubtitle = filters.reportType === "annual" ? `Consolidado anual de ${filters.yearFilter || "todos os anos"}` : filters.reportType === "general" ? "Consolidado de toda a base existente" : "Consulta atual da tela de relatórios";
   const html = `
@@ -3029,6 +3054,7 @@ function openReportsPdfWindow(requests, filters) {
             ${filters.yearFilter ? printInfoRow("Ano", filters.yearFilter) : ""}
             ${printInfoRow("Status", filters.statusFilter || "Todos")}
             ${printInfoRow("Usuário", userLabel)}
+            ${printInfoRow("Usuario atribuido", assignedUserLabel)}
             ${printInfoRow("Gerado em", generatedAt)}
           </div>
         </section>
@@ -3055,6 +3081,7 @@ function openReportsPdfWindow(requests, filters) {
                 <th>Demanda</th>
                 <th>Local</th>
                 <th>Status</th>
+                <th>Usuario atribuido</th>
                 <th>Criada em</th>
                 <th>Atualizada em</th>
               </tr>
@@ -3158,7 +3185,9 @@ function RequestsTable({
     className: "d-block text-muted"
   }, "Prazo estimado: ", request.prazo_estimado || "Não informado")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(StatusBadge, {
     status: request.status
-  })), editable && /*#__PURE__*/React.createElement("td", null, isRequestResolved(request.status) ? /*#__PURE__*/React.createElement("small", {
+  }), request.assigned_user_nome && /*#__PURE__*/React.createElement("small", {
+    className: "d-block text-muted mt-1"
+  }, "Atribuido: ", request.assigned_user_nome)), editable && /*#__PURE__*/React.createElement("td", null, isRequestResolved(request.status) ? /*#__PURE__*/React.createElement("small", {
     className: "text-muted"
   }, "Somente leitura") : /*#__PURE__*/React.createElement("select", {
     className: "form-select form-select-sm",
