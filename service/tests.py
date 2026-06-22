@@ -131,6 +131,36 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(user.siape, "7654322")
         write_email.assert_called_once()
 
+    @patch("service.views.write_rejection_email")
+    def test_admin_can_reject_pending_registration(self, write_email):
+        pending = User.objects.create(
+            nome="Cadastro Pendente",
+            login="cadastro.pendente",
+            email="cadastro.pendente@ufam.edu.br",
+            siape="7654323",
+            cargo="Docente",
+            password_hash=make_password("Temporaria@123"),
+            group=self.docente_group,
+            active=False,
+            approval_status="pending",
+            first_login_required=True,
+        )
+
+        response = self.post_json(f"/api/users/{pending.id}/reject", {}, authenticated=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(id=pending.id).exists())
+        write_email.assert_called_once()
+        self.assertEqual(write_email.call_args.args[0].email, "cadastro.pendente@ufam.edu.br")
+
+    @patch("service.views.write_rejection_email")
+    def test_admin_cannot_reject_approved_user(self, write_email):
+        response = self.post_json(f"/api/users/{self.admin.id}/reject", {}, authenticated=True)
+
+        self.assertEqual(response.status_code, 422)
+        self.assertTrue(User.objects.filter(id=self.admin.id).exists())
+        write_email.assert_not_called()
+
     def test_siape_requires_exactly_seven_digits(self):
         scenarios = [
             (

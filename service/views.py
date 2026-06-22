@@ -303,6 +303,26 @@ def write_approval_email(user, temporary_password):
     )
 
 
+def write_rejection_email(user):
+    settings.DEV_MAILBOX_DIR.mkdir(exist_ok=True)
+    safe_email = "".join(char if char.isalnum() else "_" for char in user.email)
+    path = settings.DEV_MAILBOX_DIR / f"rejected_{safe_email}.txt"
+    path.write_text(
+        "\n".join(
+            [
+                "Sistema OS ICET/UFAM",
+                "Cadastro não autorizado",
+                "",
+                f"Olá, {user.nome}.",
+                "Seu cadastro no sistema de Ordem de Serviço do ICET/UFAM não foi autorizado pela administração.",
+                "",
+                "Caso precise de acesso ao sistema ou queira corrigir seus dados, procure o administrador do setor de TI do ICET.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 @csrf_exempt
 @require_http_methods(["GET"])
 def public_bootstrap(request):
@@ -870,6 +890,24 @@ def approve_user(request, user_id):
     item = User.objects.select_related("group").get(id=item.id)
     write_approval_email(item, temporary_password)
     return api_response({"item": user_dict(item), "mensagem": "Usuário aprovado. E-mail simulado de aprovação gerado em dev_mailbox."})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def reject_user(request, user_id):
+    acting_user, response = require_user(request)
+    if response:
+        return response
+    if not is_admin(acting_user):
+        return api_response({"detail": "Seu grupo não tem permissão para remover cadastros pendentes."}, 403)
+    item = User.objects.filter(id=user_id).first()
+    if not item:
+        return api_response({"detail": "Usuário não encontrado."}, 404)
+    if item.approval_status != "pending":
+        return api_response({"detail": "Somente cadastros pendentes podem ser removidos por esta ação."}, 422)
+    write_rejection_email(item)
+    item.delete()
+    return api_response({"id": user_id, "mensagem": "Cadastro removido. E-mail simulado de não autorização gerado em dev_mailbox."})
 
 
 @csrf_exempt

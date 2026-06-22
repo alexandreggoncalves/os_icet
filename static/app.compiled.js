@@ -340,6 +340,19 @@ function App() {
       return false;
     }
   }
+  async function rejectUser(userId) {
+    try {
+      const data = await api(`/api/users/${userId}/reject`, {
+        method: "POST"
+      });
+      setUsers(current => current.filter(item => item.id !== userId));
+      notify(data.mensagem || "Cadastro removido.", "warning");
+      return true;
+    } catch (error) {
+      notify(error.message, "danger");
+      return false;
+    }
+  }
   async function updateEntity(path, itemId, payload, setter, message) {
     try {
       const data = await api(`${path}/${itemId}`, {
@@ -504,7 +517,8 @@ function App() {
   }, /*#__PURE__*/React.createElement(PendingApprovals, {
     users: pendingUsers,
     groups: groups,
-    approveUser: approveUser
+    approveUser: approveUser,
+    rejectUser: rejectUser
   })), page === "gerenciamento-grupos" && /*#__PURE__*/React.createElement(Protected, {
     authed: authed,
     allowed: permissions.can_manage,
@@ -1463,7 +1477,8 @@ function Management({
 function PendingApprovals({
   users,
   groups,
-  approveUser
+  approveUser,
+  rejectUser
 }) {
   const activeGroups = groups.filter(group => group.active !== false);
   const [selectedId, setSelectedId] = useState(null);
@@ -1487,6 +1502,15 @@ function PendingApprovals({
     const ok = await approveUser(selected.id, {
       grupo_id: groupId
     });
+    if (ok) {
+      setSelectedId(null);
+    }
+  }
+  async function rejectSelected() {
+    if (!selected) return;
+    const confirmed = window.confirm(`Deseja remover o cadastro de ${selected.nome}? O usuário será excluído da base e receberá um e-mail simulado informando que o cadastro não foi autorizado.`);
+    if (!confirmed) return;
+    const ok = await rejectUser(selected.id);
     if (ok) {
       setSelectedId(null);
     }
@@ -1563,12 +1587,18 @@ function PendingApprovals({
       }))
     }), /*#__PURE__*/React.createElement("div", {
       className: "alert alert-warning small mt-3"
-    }, "Ao aprovar, o usuário será ativado, receberá uma senha provisória no e-mail simulado e precisará cadastrar uma senha definitiva no primeiro acesso."), /*#__PURE__*/React.createElement("button", {
+    }, "Ao aprovar, o usuário será ativado, receberá uma senha provisória no e-mail simulado e precisará cadastrar uma senha definitiva no primeiro acesso."), /*#__PURE__*/React.createElement("div", {
+      className: "d-flex flex-wrap gap-2"
+    }, /*#__PURE__*/React.createElement("button", {
       className: "btn btn-icet",
       type: "button",
       onClick: approveSelected,
       disabled: !groupId
-    }, "Aprovar cadastro")));
+    }, "Aprovar cadastro"), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-outline-danger",
+      type: "button",
+      onClick: rejectSelected
+    }, "Remover Cadastro"))));
   })), !selected && /*#__PURE__*/React.createElement("div", {
     className: "alert alert-info small mt-3 mb-0"
   }, "Clique em um cadastro pendente para visualizar os dados, escolher o grupo e aprovar o acesso.")));
