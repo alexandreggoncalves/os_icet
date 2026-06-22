@@ -1,3 +1,4 @@
+/* Variáveis visuais do tema ICET usadas em todo o frontend. */
 :root {
   --icet-dark: #073b22;
   --icet-green: #0f6b3a;
@@ -5,6 +6,7 @@
   --icet-line: #cfe8d8;
 }
 
+/* Base da aplicação e fundo institucional claro. */
 body {
   min-height: 100vh;
   background:
@@ -18,6 +20,7 @@ body {
   min-height: 100vh;
 }
 
+/* Identidade visual exibida no cabeçalho e na primeira tela. */
 .brand-mark {
   align-items: center;
   background: linear-gradient(135deg, #0f6b3a, #1f9d55);
@@ -48,6 +51,7 @@ body {
   width: 118px;
 }
 
+/* Navegação principal e menus administrativos. */
 .navbar {
   backdrop-filter: blur(16px);
   background: rgba(255, 255, 255, 0.9);
@@ -89,6 +93,7 @@ body {
   color: #fff;
 }
 
+/* Botões reutilizáveis com a paleta do ICET. */
 .btn-icet:hover {
   background: var(--icet-dark);
   color: #fff;
@@ -119,6 +124,7 @@ body {
   overflow: hidden;
 }
 
+/* Superfícies e cartões usados nas páginas internas. */
 .surface {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--icet-line);
@@ -146,6 +152,7 @@ body {
   width: 34px;
 }
 
+/* Campos de formulário com foco consistente para acessibilidade visual. */
 .form-control,
 .form-select {
   border-color: #bfdcca;

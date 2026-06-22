@@ -4,6 +4,7 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Carrega variáveis locais sem exigir dependência externa de dotenv.
 ENV_PATH = BASE_DIR / ".env"
 if ENV_PATH.exists():
     for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
@@ -12,6 +13,7 @@ if ENV_PATH.exists():
         key, value = line.split("=", 1)
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
+# Em produção, defina DJANGO_SECRET_KEY e desative DEBUG no ambiente.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key")
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
@@ -43,6 +45,7 @@ WSGI_APPLICATION = "osicet.wsgi.application"
 
 DATABASES = {
     "default": {
+        # PostgreSQL é o banco oficial do sistema; defaults facilitam instalação local.
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ.get("POSTGRES_DB", "os_icet"),
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
@@ -53,11 +56,13 @@ DATABASES = {
 }
 
 LANGUAGE_CODE = "pt-br"
+# O fuso institucional usado nas datas exibidas é Manaus/Amazonas (-04:00).
 TIME_ZONE = "America/Manaus"
 USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"
+# WhiteNoise permite servir assets estáticos no mesmo processo Django.
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STORAGES = {
@@ -67,10 +72,12 @@ STORAGES = {
 }
 
 MEDIA_URL = "/uploads/"
+# Anexos das interações ficam isolados de staticfiles para facilitar backup/limpeza.
 MEDIA_ROOT = BASE_DIR / "uploads"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
 
+# Em ambiente local, e-mails transacionais são simulados em arquivos nesta pasta.
 DEV_MAILBOX_DIR = BASE_DIR / "dev_mailbox"

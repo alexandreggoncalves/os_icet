@@ -7,10 +7,14 @@ from service.views import create_request_record
 
 
 class Command(BaseCommand):
+    """Cria carga mínima para instalar e acessar o sistema em ambiente local."""
+
     help = "Cria os dados iniciais compatíveis com o protótipo original."
 
     def handle(self, *args, **options):
+        """Executa a carga idempotente de grupos, usuários, demandas, locais e exemplos."""
         with transaction.atomic():
+            # Grupos têm IDs fixos porque outras rotinas sugerem grupos por cargo.
             admin_group, _ = AccessGroup.objects.update_or_create(
                 id=1,
                 defaults={"nome": "Administradores", "descricao": "Acesso completo ao sistema local."},
@@ -24,6 +28,7 @@ class Command(BaseCommand):
                 defaults={"nome": "Técnicos Administrativos", "descricao": "Podem criar e consultar as próprias solicitações."},
             )
 
+            # Usuário master garante acesso administrativo logo após a instalação.
             User.objects.update_or_create(
                 login="admin",
                 defaults={
@@ -71,6 +76,7 @@ class Command(BaseCommand):
                 },
             )
 
+            # Demandas iniciais alimentam o formulário de abertura de solicitação.
             for nome, prazo in [
                 ("Manutenção de Hardware", "2 dias úteis"),
                 ("Redes de Computadores", "1 dia útil"),
@@ -79,10 +85,12 @@ class Command(BaseCommand):
             ]:
                 Demand.objects.update_or_create(nome=nome, defaults={"prazo": prazo})
 
+            # Local e blocos padrão permitem criar solicitações imediatamente.
             local_icet, _ = Location.objects.update_or_create(nome="ICET", defaults={"active": True})
             for bloco in ["Bloco A", "Bloco B", "Bloco C"]:
                 Block.objects.update_or_create(location=local_icet, nome=bloco, defaults={"active": True})
 
+            # Amostras são criadas apenas quando a base ainda não possui solicitações.
             if not ServiceRequest.objects.exists():
                 samples = [
                     (

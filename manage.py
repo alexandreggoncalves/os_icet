@@ -4,6 +4,7 @@ import sys
 
 
 def main():
+    """Ponto de entrada dos comandos Django usados em desenvolvimento e produção."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "osicet.settings")
     from django.core.management import execute_from_command_line
 

@@ -81,6 +81,7 @@ const emptyRequest = {
   categoria: "Manutenção de Hardware",
   descricao: ""
 };
+// Componente raiz: controla estado global, navegação, autenticação e chamadas da API.
 function App() {
   const [page, setPage] = useState("inicio");
   const [loginInitialMode, setLoginInitialMode] = useState("login");
@@ -101,10 +102,12 @@ function App() {
   const adminUsers = users.filter(item => item.active && item.approval_status === "approved" && item.grupo_nome === "Administradores");
   const authed = Boolean(token);
   const pendingUsers = users.filter(item => item.approval_status === "pending");
+  // Centraliza mudança de página para preservar ajustes específicos de navegação.
   function navigate(nextPage) {
     if (nextPage === "login") setLoginInitialMode("login");
     setPage(nextPage);
   }
+  // Abre a tela de primeiro acesso/cadastro a partir dos atalhos públicos.
   function openFirstAccess() {
     setLoginInitialMode("register");
     setPage("login");
@@ -112,6 +115,7 @@ function App() {
   useEffect(() => {
     loadBootstrapData();
   }, [token]);
+  // Wrapper das chamadas fetch com token, JSON padrão e tratamento único de erro.
   async function api(path, options = {}) {
     const isFormData = options.body instanceof FormData;
     const response = await fetch(path, {
@@ -134,12 +138,14 @@ function App() {
     }
     return data;
   }
+  // Exibe mensagens temporárias de sucesso, alerta ou erro.
   function notify(message, type = "success") {
     setToast({
       message,
       type
     });
   }
+  // Carrega dados iniciais públicos ou autenticados conforme a sessão atual.
   async function loadBootstrapData() {
     try {
       const publicData = await api("/api/public/bootstrap");
@@ -172,6 +178,7 @@ function App() {
       notify(error.message, error.status === 401 ? "warning" : "danger");
     }
   }
+  // Realiza login, grava token local e redireciona conforme primeiro acesso.
   async function login(credentials) {
     setLoading(true);
     try {
@@ -195,6 +202,7 @@ function App() {
       setLoading(false);
     }
   }
+  // Solicita código de recuperação de senha para o login institucional informado.
   async function requestPasswordReset(login) {
     setLoading(true);
     try {
@@ -213,6 +221,7 @@ function App() {
       setLoading(false);
     }
   }
+  // Envia código e nova senha para concluir a recuperação.
   async function resetPassword(payload) {
     setLoading(true);
     try {
@@ -229,6 +238,7 @@ function App() {
       setLoading(false);
     }
   }
+  // Encerra sessão local e volta para a tela inicial.
   function logout() {
     localStorage.removeItem("os_token");
     setToken("");
@@ -237,6 +247,7 @@ function App() {
     setPage("inicio");
     notify("Sessão encerrada.", "warning");
   }
+  // Cria nova solicitação e abre a consulta no registro recém-criado.
   async function createRequest(payload) {
     setLoading(true);
     try {
@@ -257,6 +268,7 @@ function App() {
       setLoading(false);
     }
   }
+  // Aplica regras visuais de transição de status antes de chamar o backend.
   async function updateRequestStatus(id, payload) {
     const currentRequest = requests.find(item => item.id === id);
     if (currentRequest?.status === "Aberto" && payload.status === "Resolvido") {
@@ -299,6 +311,7 @@ function App() {
       return false;
     }
   }
+  // Cria entidades administrativas reutilizando o mesmo padrão de API/estado.
   async function createEntity(path, payload, setter, message) {
     try {
       const data = await api(path, {
@@ -313,6 +326,7 @@ function App() {
       return false;
     }
   }
+  // Registra solicitação de cadastro pendente para validação administrativa.
   async function registerUser(payload) {
     setLoading(true);
     try {
@@ -329,6 +343,7 @@ function App() {
       setLoading(false);
     }
   }
+  // Conclui primeiro acesso trocando senha provisória por senha definitiva.
   async function completeFirstAccess(payload) {
     setLoading(true);
     try {
@@ -350,6 +365,7 @@ function App() {
       setLoading(false);
     }
   }
+  // Atualiza usuário mantendo a lista local sincronizada com a API.
   async function updateUser(userId, payload) {
     try {
       const data = await api(`/api/users/${userId}`, {
@@ -364,6 +380,7 @@ function App() {
       return false;
     }
   }
+  // Aprova cadastro pendente e move o usuário para a lista de aprovados.
   async function approveUser(userId, payload) {
     try {
       const data = await api(`/api/users/${userId}/approve`, {
@@ -378,6 +395,7 @@ function App() {
       return false;
     }
   }
+  // Confirma o administrador responsável ao mover solicitação para atendimento.
   async function confirmAssignment(assignedUserId) {
     if (!assignmentModal) return false;
     const ok = await updateRequestStatus(assignmentModal.request.id, {
@@ -387,6 +405,7 @@ function App() {
     if (ok) setAssignmentModal(null);
     return ok;
   }
+  // Remove cadastro pendente após confirmação administrativa.
   async function rejectUser(userId) {
     try {
       const data = await api(`/api/users/${userId}/reject`, {
@@ -400,6 +419,7 @@ function App() {
       return false;
     }
   }
+  // Atualiza entidade administrativa mantendo ordenação e estado locais.
   async function updateEntity(path, itemId, payload, setter, message) {
     try {
       const data = await api(`${path}/${itemId}`, {
@@ -414,6 +434,7 @@ function App() {
       return false;
     }
   }
+  // Busca detalhe completo da solicitação selecionada na tabela.
   async function openRequest(id) {
     try {
       const data = await api(`/api/requests/${id}`);
@@ -423,6 +444,7 @@ function App() {
       notify(error.message, "danger");
     }
   }
+  // Envia interação e anexos opcionais para uma solicitação.
   async function sendInteraction(id, mensagem, attachments = []) {
     try {
       const formData = new FormData();
@@ -444,6 +466,7 @@ function App() {
       return false;
     }
   }
+  // Atualiza texto de interação do próprio usuário.
   async function editInteraction(interactionId, mensagem) {
     try {
       const data = await api(`/api/interactions/${interactionId}`, {
@@ -464,6 +487,7 @@ function App() {
       return false;
     }
   }
+  // Remove anexo de interação e atualiza o detalhe da solicitação.
   async function deleteAttachment(attachmentId) {
     try {
       const data = await api(`/api/attachments/${attachmentId}`, {
@@ -633,6 +657,7 @@ function App() {
     updateDemand: (id, payload) => updateEntity("/api/demands", id, payload, setDemands, "Demanda atualizada.")
   }))));
 }
+// Cabeçalho responsivo com menus filtrados por autenticação e permissão.
 function Header({
   page,
   setPage,
@@ -717,6 +742,7 @@ function Header({
     onClick: logout
   }, user?.nome || "admin", " · ", user?.grupo_nome || "grupo", " · sair"))));
 }
+// Ícone decorativo usado no cabeçalho sem depender de biblioteca externa.
 function BellIcon() {
   return /*#__PURE__*/React.createElement("svg", {
     className: "bell-alert-icon",
@@ -729,6 +755,7 @@ function BellIcon() {
     d: "M13.73 21a2 2 0 0 1-3.46 0"
   }));
 }
+// Menu inferior para navegação em telas menores.
 function MobileNav({
   page,
   setPage,
@@ -751,6 +778,7 @@ function MobileNav({
     value: item.id
   }, item.label))));
 }
+// Título padrão de páginas internas.
 function PageTitle({
   currentPage,
   authed
@@ -763,6 +791,7 @@ function PageTitle({
     className: "h3 fw-bold text-icet-900 m-0"
   }, currentPage?.label));
 }
+// Alerta flutuante controlado pelo estado global.
 function Toast({
   toast,
   onClose
@@ -781,6 +810,7 @@ function Toast({
     onClick: onClose
   }, "OK"));
 }
+// Bloqueia páginas que exigem autenticação ou permissão específica.
 function Protected({
   authed,
   allowed = true,
@@ -811,6 +841,7 @@ function Protected({
     onClick: () => setPage("login")
   }, "Ir para login"));
 }
+// Tela inicial com atalhos para abertura de solicitação e acesso.
 function Home({
   setPage,
   authed,
@@ -865,6 +896,7 @@ function Home({
     text: "Gerenciamento de grupos, usuários e tipos de demanda."
   })));
 }
+// Cartão informativo simples da página inicial.
 function Feature({
   text
 }) {
@@ -878,6 +910,7 @@ function Feature({
     className: "mb-0"
   }, text)));
 }
+// Formulário de abertura de solicitação com local, bloco e sala obrigatórios.
 function RequestForm({
   createRequest,
   demands,
@@ -891,6 +924,7 @@ function RequestForm({
   const activeBlocks = blocks.filter(item => item.active !== false);
   const selectedLocation = activeLocations.find(item => item.nome === form.local) || null;
   const filteredBlocks = selectedLocation ? activeBlocks.filter(item => Number(item.local_id || item.location_id) === Number(selectedLocation.id)) : [];
+  // Define valores iniciais considerando listas carregadas do backend.
   function defaultRequestValues() {
     const firstLocation = activeLocations[0] || null;
     const firstBlock = firstLocation ? activeBlocks.find(item => Number(item.local_id || item.location_id) === Number(firstLocation.id)) : null;
@@ -925,6 +959,7 @@ function RequestForm({
     email: user.email,
     perfil: user.grupo_nome
   };
+  // Atualiza campo do formulário e aplica máscaras quando necessário.
   function update(field, value) {
     setForm(current => ({
       ...current,
@@ -934,6 +969,7 @@ function RequestForm({
       } : {})
     }));
   }
+  // Valida e envia a solicitação para criação no backend.
   async function submit(event) {
     event.preventDefault();
     const ok = await createRequest(requestPayload);
@@ -1022,6 +1058,7 @@ function RequestForm({
     className: "btn btn-icet px-4"
   }, loading ? "Enviando..." : "Enviar solicitação"))))));
 }
+// Tela de login, recuperação de senha e solicitação de primeiro acesso.
 function Login({
   onLogin,
   loading,
@@ -1049,6 +1086,7 @@ function Login({
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+  // Solicita código de redefinição de senha.
   async function submitResetRequest() {
     const normalizedLogin = forgotLogin.trim().toLowerCase();
     const ok = await requestPasswordReset(normalizedLogin);
@@ -1057,6 +1095,7 @@ function Login({
       setMode("reset");
     }
   }
+  // Finaliza redefinição de senha com código recebido.
   async function submitNewPassword() {
     if (newPassword !== confirmPassword) {
       return;
@@ -1079,6 +1118,7 @@ function Login({
       }, 3000);
     }
   }
+  // Envia cadastro pendente para validação do administrador.
   async function submitRegister(event) {
     event.preventDefault();
     const ok = await registerUser(registerForm);
@@ -1092,6 +1132,7 @@ function Login({
       });
     }
   }
+  // Atualiza campos do cadastro, normalizando o prefixo institucional.
   function updateRegister(field, value) {
     setRegisterForm(current => ({
       ...current,
@@ -1743,6 +1784,7 @@ function PendingApprovals({
     className: "alert alert-info small mt-3 mb-0"
   }, "Clique em um cadastro pendente para visualizar os dados, escolher o grupo e aprovar o acesso.")));
 }
+// Gerencia criação, edição e ativação de grupos de acesso.
 function GroupManager({
   groups,
   createGroup,
@@ -1820,6 +1862,7 @@ function GroupManager({
     protectedName: "Administradores"
   }));
 }
+// Gerencia usuários aprovados, incluindo prefixo institucional e grupo.
 function UserManager({
   users,
   groups,
@@ -1986,6 +2029,7 @@ function UserManager({
 function isPrimaryAdminUser(user) {
   return user?.id === 1 || user?.login === "admin";
 }
+// Tabela de usuários com ações administrativas contextuais.
 function UsersTable({
   users,
   startEdit,
@@ -2034,6 +2078,7 @@ function UsersTable({
     }, active ? "Desativar" : "Reativar"))));
   }))));
 }
+// Gerencia demandas e seus prazos estimados.
 function DemandManager({
   demands,
   createDemand,
@@ -2107,6 +2152,7 @@ function DemandManager({
     toggleActive: toggleActive
   }));
 }
+// Gerencia locais físicos disponíveis na abertura de solicitações.
 function LocationManager({
   locations,
   createLocation,
@@ -2172,6 +2218,7 @@ function LocationManager({
     toggleActive: toggleActive
   }));
 }
+// Gerencia blocos vinculados a locais físicos.
 function BlockManager({
   blocks,
   locations,
@@ -2271,6 +2318,7 @@ function BlockManager({
     toggleActive: toggleActive
   }));
 }
+// Tabela reutilizável para entidades administrativas simples.
 function ManagementEntityTable({
   items,
   detailField,
@@ -2314,6 +2362,7 @@ function ManagementEntityTable({
     }, active ? "Desativar" : "Reativar")));
   }))));
 }
+// Badge visual para destacar o status da solicitação.
 function StatusBadge({
   status
 }) {
@@ -2321,6 +2370,7 @@ function StatusBadge({
     className: `badge rounded-pill status-badge ${statusClass(status)}`
   }, status);
 }
+// Regras de senha exibidas em tempo real nos fluxos de senha.
 function passwordRules(password = "") {
   const special = /[!@#$%^&*()\-_=+\[\]{};:,.?/\\|`~'"<>]/;
   return [{
@@ -2334,6 +2384,7 @@ function passwordRules(password = "") {
     ok: special.test(password)
   }];
 }
+// Converte status textual em classe CSS correspondente.
 function statusClass(status = "") {
   const normalized = status.toLowerCase();
   if (normalized.includes("aberto")) return "status-open";
@@ -2342,23 +2393,28 @@ function statusClass(status = "") {
   if (normalized.includes("cancelado") || normalized.includes("erro")) return "status-danger";
   return "status-neutral";
 }
+// Classe auxiliar para cards estatísticos por status.
 function statusCardClass(status = "") {
   return `status-card ${statusClass(status)}`;
 }
+// Verifica se a solicitação está bloqueada para novas alterações.
 function isRequestResolved(status = "") {
   return status.trim().toLowerCase() === "resolvido";
 }
+// Limita opções de transição conforme regra de negócio do atendimento.
 function statusOptionsFor(status = "") {
   if (status === "Aberto") return ["Aberto", "Em Atendimento"];
   if (status === "Em Atendimento") return ["Em Atendimento", "Resolvido"];
   return [status || "Aberto"];
 }
+// Rola a tela até o detalhe da solicitação recém-selecionada.
 function scrollToRequestDetail() {
   document.getElementById("request-detail")?.scrollIntoView({
     behavior: "smooth",
     block: "start"
   });
 }
+// Exibe dados completos, histórico, anexos e ações da solicitação.
 function RequestDetail({
   request,
   permissions,
@@ -2384,6 +2440,7 @@ function RequestDetail({
     }, "Clique em uma linha da consulta para abrir os dados completos e o histórico de atendimento."));
   }
   const requestResolved = isRequestResolved(request.status);
+  // Envia nova interação a partir do formulário do detalhe.
   async function submit(event) {
     event.preventDefault();
     if (requestResolved) return;
@@ -2394,22 +2451,27 @@ function RequestDetail({
       event.target.reset();
     }
   }
+  // Adiciona anexos selecionados ao estado antes do envio.
   function addAttachments(fileList) {
     const nextFiles = Array.from(fileList || []);
     setAttachments(current => [...current, ...nextFiles]);
   }
+  // Remove anexo ainda não enviado da lista local.
   function removeAttachment(index) {
     setAttachments(current => current.filter((_, itemIndex) => itemIndex !== index));
   }
+  // Coloca uma interação existente em modo de edição.
   function startEditInteraction(item) {
     if (requestResolved) return;
     setEditingInteractionId(item.id);
     setEditingMessage(item.mensagem);
   }
+  // Cancela edição de interação e limpa o formulário auxiliar.
   function cancelEditInteraction() {
     setEditingInteractionId(null);
     setEditingMessage("");
   }
+  // Persiste alteração textual de uma interação existente.
   async function submitEditInteraction(event, item) {
     event.preventDefault();
     if (requestResolved) return;
@@ -2589,6 +2651,7 @@ function RequestDetail({
     className: "btn btn-icet w-100"
   }, "Enviar mensagem")))));
 }
+// Campo compacto de leitura usado no detalhe e nos relatórios.
 function Info({
   label,
   value
@@ -2601,6 +2664,7 @@ function Info({
     className: "text-muted d-block"
   }, label), /*#__PURE__*/React.createElement("strong", null, value || "-")));
 }
+// Formata data/hora para exibição local em Manaus.
 function formatDateTime(value) {
   if (!value) return "-";
   const rawValue = String(value);
@@ -2611,6 +2675,7 @@ function formatDateTime(value) {
     timeZone: "America/Manaus"
   }).format(new Date(normalizedValue));
 }
+// Complementa solicitação com prazo estimado da demanda quando necessário.
 function attachEstimatedDeadline(request, demands = []) {
   if (request.prazo_estimado) return request;
   const demand = demands.find(item => item.nome === request.categoria);
@@ -2619,14 +2684,17 @@ function attachEstimatedDeadline(request, demands = []) {
     prazo_estimado: demand?.prazo || "Não informado"
   };
 }
+// Converte tamanho de arquivo em unidade legível.
 function formatFileSize(size = 0) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
+// Escapa texto antes de injetar em janelas de impressão.
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
+// Gera linha de informação para HTML de impressão.
 function printInfoRow(label, value) {
   return `
     <div class="info-row">
@@ -2635,6 +2703,7 @@ function printInfoRow(label, value) {
     </div>
   `;
 }
+// Abre janela de impressão/PDF de uma solicitação individual.
 function openRequestPdfWindow(request) {
   const printWindow = window.open("", "_blank", "width=960,height=720");
   if (!printWindow) {
@@ -2873,10 +2942,12 @@ function openRequestPdfWindow(request) {
   printWindow.document.write(html);
   printWindow.document.close();
 }
+// Escapa célula CSV usando ponto e vírgula como separador do relatório.
 function csvValue(value = "") {
   const text = String(value ?? "");
   return `"${text.replace(/"/g, '""')}"`;
 }
+// Gera arquivo CSV dos relatórios com os filtros aplicados.
 function downloadReportsCsv(requests, filters) {
   const headers = ["Protocolo", "Solicitante", "E-mail", "SIAPE", "Perfil", "Demanda", "Local", "Localização", "Bloco", "Sala", "Status", "Criada em", "Atualizada em", "Descrição"];
   const rows = requests.map(request => [request.protocolo, request.nome, request.email, request.siape, request.perfil, request.categoria, request.local, request.localizacao, request.bloco, request.sala, request.status, formatDateTime(request.created_at), formatDateTime(request.updated_at), request.descricao]);
@@ -2896,6 +2967,7 @@ function downloadReportsCsv(requests, filters) {
   link.remove();
   URL.revokeObjectURL(url);
 }
+// Abre janela de impressão/PDF para relatórios consolidados.
 function openReportsPdfWindow(requests, filters) {
   const printWindow = window.open("", "_blank", "width=1060,height=720");
   if (!printWindow) {
@@ -3106,6 +3178,7 @@ function openReportsPdfWindow(requests, filters) {
   printWindow.document.write(html);
   printWindow.document.close();
 }
+// Modal que seleciona administrador responsável ao iniciar atendimento.
 function AssignmentModal({
   state,
   adminUsers,
@@ -3160,6 +3233,7 @@ function AssignmentModal({
     className: "modal-backdrop fade show"
   }));
 }
+// Tabela de solicitações reutilizada em consultas e relatórios.
 function RequestsTable({
   requests,
   compact = false,
@@ -3200,6 +3274,7 @@ function RequestsTable({
     key: option
   }, option)))))))));
 }
+// Controles de paginação da consulta de solicitações.
 function PaginationControls({
   currentPage,
   totalPages,
@@ -3235,6 +3310,7 @@ function PaginationControls({
     onClick: () => setCurrentPage(totalPages)
   }, "Última")));
 }
+// Layout comum para telas de login e senha.
 function AuthLayout({
   title,
   description,
@@ -3254,6 +3330,7 @@ function AuthLayout({
     className: "row g-3"
   }, children))));
 }
+// Card de ação usado nos atalhos do painel.
 function ActionCard({
   title,
   text,
@@ -3274,6 +3351,7 @@ function ActionCard({
     className: "fw-bold text-success"
   }, "Acessar")));
 }
+// Campo de texto padrão usado nos formulários.
 function Input({
   label,
   type = "text",
@@ -3304,6 +3382,7 @@ function Input({
     pattern: pattern
   }));
 }
+// Campo especializado para login institucional antes do @ufam.edu.br.
 function EmailPrefixInput({
   label,
   value = "",
@@ -3331,6 +3410,7 @@ function EmailPrefixInput({
     className: "email-domain"
   }, "@ufam.edu.br")));
 }
+// Campo de senha padrão com suporte aos fluxos de autenticação.
 function PasswordInput({
   label,
   value = "",
@@ -3363,6 +3443,7 @@ function PasswordInput({
     "aria-label": visible ? `Ocultar ${label}` : `Mostrar ${label}`
   }, visible ? "Ocultar" : "Mostrar")));
 }
+// Campo com sugestões de usuário para filtros de relatório.
 function UserAutocomplete({
   label,
   value = "",
@@ -3405,6 +3486,7 @@ function UserAutocomplete({
     }
   }, option))));
 }
+// Select padrão com rótulo e grid responsivo.
 function Select({
   label,
   options,
@@ -3435,6 +3517,7 @@ function Select({
     value: option.value
   }, option.label))));
 }
+// Área de texto padrão para descrições e mensagens.
 function TextArea({
   label,
   value = "",

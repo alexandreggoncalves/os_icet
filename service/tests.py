@@ -13,7 +13,10 @@ from service.views import format_dt
 
 
 class UserRegistrationTests(TestCase):
+    """Cobre fluxos críticos de usuário, solicitação, status e cadastros administrativos."""
+
     def setUp(self):
+        """Prepara grupos, local, blocos e sessão administrativa usados pelos testes."""
         self.admin_group = AccessGroup.objects.create(id=1, nome="Administradores")
         self.docente_group = AccessGroup.objects.create(id=2, nome="Docentes")
         self.location, _ = Location.objects.get_or_create(nome="ICET")
@@ -35,10 +38,12 @@ class UserRegistrationTests(TestCase):
         )
 
     def post_json(self, path, payload, authenticated=False):
+        """Facilita requisições POST JSON com autenticação opcional."""
         headers = {"HTTP_AUTHORIZATION": "Bearer admin-test-token"} if authenticated else {}
         return self.client.post(path, data=json.dumps(payload), content_type="application/json", **headers)
 
     def put_json(self, path, payload):
+        """Facilita requisições PUT JSON autenticadas como administrador."""
         return self.client.put(
             path,
             data=json.dumps(payload),
@@ -47,6 +52,7 @@ class UserRegistrationTests(TestCase):
         )
 
     def make_request(self, **kwargs):
+        """Cria solicitação válida para cenários que testam regras posteriores."""
         payload = {
             "protocolo": f"OS-TESTE-{ServiceRequest.objects.count() + 1:03d}",
             "owner_user": self.admin,
@@ -65,6 +71,7 @@ class UserRegistrationTests(TestCase):
         return ServiceRequest.objects.create(**payload)
 
     def test_first_access_derives_email_from_login(self):
+        """Garante que o primeiro acesso gere e-mail institucional a partir do login."""
         response = self.post_json(
             "/api/auth/register",
             {
@@ -81,12 +88,14 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(user.email, "pessoa.teste@ufam.edu.br")
 
     def test_format_dt_uses_manaus_offset(self):
+        """Garante que datas sejam exibidas no fuso de Manaus."""
         value = datetime.datetime(2026, 6, 22, 13, 30, tzinfo=datetime.UTC)
 
         self.assertEqual(format_dt(value), "2026-06-22T09:30:00-04:00")
 
     @patch("service.views.write_approval_email")
     def test_admin_creation_generates_temporary_password_and_email(self, write_email):
+        """Garante que cadastro administrativo gere senha provisoria e e-mail simulado."""
         response = self.post_json(
             "/api/users",
             {
@@ -135,6 +144,7 @@ class UserRegistrationTests(TestCase):
 
     @patch("service.views.write_approval_email")
     def test_admin_creation_accepts_email_prefix_field(self, write_email):
+        """Garante que o cadastro aceite somente o prefixo do e-mail institucional."""
         response = self.post_json(
             "/api/users",
             {
@@ -154,6 +164,7 @@ class UserRegistrationTests(TestCase):
 
     @patch("service.views.write_rejection_email")
     def test_admin_can_reject_pending_registration(self, write_email):
+        """Garante remocao de cadastro pendente e aviso simulado ao usuario."""
         pending = User.objects.create(
             nome="Cadastro Pendente",
             login="cadastro.pendente",
@@ -176,6 +187,7 @@ class UserRegistrationTests(TestCase):
 
     @patch("service.views.write_rejection_email")
     def test_admin_cannot_reject_approved_user(self, write_email):
+        """Garante que usuario aprovado nao seja removido pelo fluxo de pendencias."""
         response = self.post_json(f"/api/users/{self.admin.id}/reject", {}, authenticated=True)
 
         self.assertEqual(response.status_code, 422)
@@ -183,6 +195,7 @@ class UserRegistrationTests(TestCase):
         write_email.assert_not_called()
 
     def test_siape_requires_exactly_seven_digits(self):
+        """Garante validacao rigida de SIAPE com sete digitos."""
         scenarios = [
             (
                 "/api/auth/register",
@@ -209,6 +222,7 @@ class UserRegistrationTests(TestCase):
 
     @patch("service.views.write_reset_email")
     def test_password_reset_uses_institutional_login(self, write_email):
+        """Garante recuperacao de senha pelo login institucional."""
         self.admin.email = "admin@icet.ufam.edu.br"
         self.admin.save(update_fields=["email"])
         response = self.post_json("/api/auth/forgot-password", {"login": "ADMIN"})
@@ -224,6 +238,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(external_response.status_code, 422)
 
     def test_three_invalid_passwords_lock_account_for_fifteen_minutes(self):
+        """Garante bloqueio temporario apos tres senhas invalidas."""
         for attempt in range(1, 4):
             response = self.post_json(
                 "/api/auth/login",
@@ -242,6 +257,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(blocked_response.status_code, 423)
 
     def test_expired_lock_allows_login_and_clears_attempts(self):
+        """Garante limpeza do bloqueio quando o prazo expira."""
         self.admin.failed_login_attempts = 3
         self.admin.locked_until = timezone.now() - timezone.timedelta(seconds=1)
         self.admin.save(update_fields=["failed_login_attempts", "locked_until"])
@@ -257,6 +273,7 @@ class UserRegistrationTests(TestCase):
         self.assertIsNone(self.admin.locked_until)
 
     def test_password_reset_unlocks_account(self):
+        """Garante que redefinir senha tambem desbloqueia a conta."""
         code = "123456"
         self.admin.email = "admin@icet.ufam.edu.br"
         self.admin.failed_login_attempts = 3
@@ -291,6 +308,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(login_response.status_code, 200)
 
     def test_request_uses_authenticated_users_registered_siape(self):
+        """Garante que solicitacao use dados cadastrais do usuario autenticado."""
         requester = User.objects.create(
             nome="Solicitante Teste",
             login="solicitante.teste",
@@ -326,6 +344,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(ServiceRequest.objects.get().siape, "2468135")
 
     def test_admin_request_uses_own_registered_data_and_ownership(self):
+        """Garante que admin tambem abra solicitacao com seus proprios dados."""
         response = self.post_json(
             "/api/requests",
             {
@@ -352,6 +371,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(item.local, "ICET")
 
     def test_request_requires_numeric_room_with_up_to_three_digits(self):
+        """Garante que sala aceite apenas numero com ate tres digitos."""
         response = self.post_json(
             "/api/requests",
             {
@@ -367,6 +387,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(response.status_code, 422)
 
     def test_open_request_cannot_be_resolved_before_in_progress(self):
+        """Garante que solicitacao aberta nao seja resolvida sem atendimento previo."""
         item = self.make_request(status="Aberto")
 
         response = self.put_json(f"/api/requests/{item.id}/status", {"status": "Resolvido"})
@@ -376,6 +397,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(item.status, "Aberto")
 
     def test_open_request_requires_admin_assignment_to_enter_progress(self):
+        """Garante que inicio de atendimento exija responsavel administrador."""
         item = self.make_request(status="Aberto")
 
         response = self.put_json(f"/api/requests/{item.id}/status", {"status": "Em Atendimento"})
@@ -385,6 +407,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(item.status, "Aberto")
 
     def test_open_request_enters_progress_with_assigned_admin_and_interaction(self):
+        """Garante atribuicao de responsavel e registro automatico no historico."""
         item = self.make_request(status="Aberto")
 
         response = self.put_json(
@@ -401,6 +424,7 @@ class UserRegistrationTests(TestCase):
         self.assertIn(self.admin.nome, interaction.mensagem)
 
     def test_in_progress_request_cannot_return_to_open(self):
+        """Garante que solicitacao em atendimento nao volte para aberta."""
         item = self.make_request(status="Em Atendimento", assigned_user=self.admin)
 
         response = self.put_json(f"/api/requests/{item.id}/status", {"status": "Aberto"})
@@ -410,12 +434,14 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(item.status, "Em Atendimento")
 
     def test_seed_assigns_placeholder_siape_to_master_admin(self):
+        """Garante SIAPE padrao do administrador criado pela carga inicial."""
         call_command("seed_data", verbosity=0)
 
         self.admin.refresh_from_db()
         self.assertEqual(self.admin.siape, "0000000")
 
     def test_admin_can_update_users_siape(self):
+        """Garante que administrador possa corrigir SIAPE de usuarios comuns."""
         user = User.objects.create(
             nome="Usuário Editável",
             login="usuario.editavel",
@@ -441,6 +467,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(user.siape, "2222222")
 
     def test_admin_can_update_user_from_full_institutional_email(self):
+        """Garante normalizacao quando admin informa e-mail institucional completo."""
         user = User.objects.create(
             nome="Usuário Editável",
             login="usuario.editavel",
@@ -468,6 +495,7 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(user.siape, "4444444")
 
     def test_administrators_group_cannot_be_edited_or_deactivated(self):
+        """Garante protecao do grupo Administradores."""
         response = self.put_json(
             f"/api/groups/{self.admin_group.id}",
             {"nome": "Outro nome", "descricao": "Alterada", "active": False},
@@ -479,6 +507,7 @@ class UserRegistrationTests(TestCase):
         self.assertTrue(self.admin_group.active)
 
     def test_regular_group_can_be_edited_and_deactivated(self):
+        """Garante edicao e desativacao de grupos comuns."""
         response = self.put_json(
             f"/api/groups/{self.docente_group.id}",
             {"nome": "Professores", "descricao": "Grupo atualizado", "active": False},
@@ -490,6 +519,7 @@ class UserRegistrationTests(TestCase):
         self.assertFalse(self.docente_group.active)
 
     def test_demand_can_be_edited_and_deactivated_without_deletion(self):
+        """Garante edicao de demanda preservando solicitacoes historicas."""
         demand = Demand.objects.create(nome="Demanda antiga", prazo="2 dias úteis")
         service_request = ServiceRequest.objects.create(
             protocolo="OS-TESTE-001",
@@ -524,6 +554,7 @@ class UserRegistrationTests(TestCase):
         self.assertTrue(Demand.objects.filter(id=demand.id).exists())
 
     def test_location_and_block_management(self):
+        """Garante cadastros de local/bloco e atualizacao de historicos relacionados."""
         location_response = self.post_json("/api/locations", {"nome": "Campus Teste"}, authenticated=True)
         self.assertEqual(location_response.status_code, 201)
         location = Location.objects.get(nome="Campus Teste")

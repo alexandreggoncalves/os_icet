@@ -13,9 +13,12 @@ DEMO_PASSWORD = "Demo@1234"
 
 
 class Command(BaseCommand):
+    """Popula a base com dados ricos para demonstrações e homologação."""
+
     help = "Popula a base local com usuarios, solicitacoes e interacoes de demonstracao."
 
     def handle(self, *args, **options):
+        """Orquestra criação idempotente de usuários, cadastros e solicitações demo."""
         with transaction.atomic():
             admin_group = AccessGroup.objects.get(nome="Administradores")
             docente_group = AccessGroup.objects.get(nome="Docentes")
@@ -42,6 +45,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Senha dos usuarios demo: {DEMO_PASSWORD}")
 
     def reset_sequences(self):
+        """Realinha sequências do PostgreSQL após cargas que usam objetos conhecidos."""
         sequence_sql = connection.ops.sequence_reset_sql(
             no_style(), [AccessGroup, Block, Demand, Interaction, Location, ServiceRequest, User]
         )
@@ -50,6 +54,7 @@ class Command(BaseCommand):
                 cursor.execute(statement)
 
     def create_demo_users(self, docente_group, tecnico_group):
+        """Cria usuários aprovados para simular solicitantes de grupos diferentes."""
         specs = [
             {
                 "nome": "Carla Menezes",
@@ -122,6 +127,7 @@ class Command(BaseCommand):
         return users
 
     def create_demands(self):
+        """Garante demandas adicionais usadas nos cenários demonstrativos."""
         for nome, prazo in [
             ("Manutenção Predial", "5 dias úteis"),
             ("Telefonia e Ramais", "2 dias úteis"),
@@ -131,6 +137,7 @@ class Command(BaseCommand):
             Demand.objects.update_or_create(nome=nome, defaults={"prazo": prazo})
 
     def create_locations_and_blocks(self):
+        """Garante locais e blocos usados pelas solicitações de demonstração."""
         specs = {
             "ICET": ["Bloco A", "Bloco B", "Bloco C", "Bloco D", "Bloco Administrativo"],
             "Biblioteca Setorial": ["Atendimento"],
@@ -141,6 +148,7 @@ class Command(BaseCommand):
                 Block.objects.update_or_create(location=location, nome=block_name, defaults={"active": True})
 
     def create_requests(self, admin, users):
+        """Cria solicitações de exemplo com status e interações variadas."""
         by_login = {user.login: user for user in users}
         specs = [
             {

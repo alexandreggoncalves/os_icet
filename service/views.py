@@ -17,32 +17,43 @@ from django.contrib.auth.hashers import check_password, make_password
 from .models import AccessGroup, Attachment, Block, Demand, Interaction, Location, PasswordReset, ServiceRequest, SessionToken, User
 
 
+"""Views e utilitários da API principal do sistema OS ICET.
+
+Este módulo concentra regras de autenticação, autorização, cadastro, abertura de
+solicitações, gestão de entidades administrativas e fluxo de atendimento.
+"""
+
 ALLOWED_UPLOAD_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".doc", ".docx"}
 MAX_FAILED_LOGIN_ATTEMPTS = 3
 LOGIN_LOCK_MINUTES = 15
 
 
 def index(request):
+    """Entrega a aplicação React servida pelo Django."""
     return render(request, "index.html")
 
 
 def api_response(payload, status=200):
+    """Padroniza respostas JSON mantendo acentuação em português."""
     return JsonResponse(payload, status=status, json_dumps_params={"ensure_ascii": False})
 
 
 def read_json(request):
+    """Lê o corpo JSON enviado pela API e devolve dicionário vazio quando não há corpo."""
     if not request.body:
         return {}
     return json.loads(request.body.decode("utf-8"))
 
 
 def format_dt(value):
+    """Formata datas em ISO para consumo consistente pelo frontend."""
     if not value:
         return None
     return timezone.localtime(value).isoformat(timespec="seconds")
 
 
 def password_validation_error(password):
+    """Valida a política mínima de senha usada em primeiro acesso e recuperação."""
     special_chars = set("!@#$%^&*()-_=+[]{};:,.?/\\|`~'\"<>")
     if len(password or "") < 8:
         return "A senha deve ter pelo menos 8 caracteres."
@@ -54,34 +65,42 @@ def password_validation_error(password):
 
 
 def is_ufam_email(email):
+    """Confere se o e-mail pertence ao domínio institucional aceito."""
     return bool(re.match(r"^[^@\s]+@ufam\.edu\.br$", email or "", re.IGNORECASE))
 
 
 def login_from_email(email):
+    """Extrai o login institucional antes do arroba."""
     return str(email).split("@", 1)[0].lower().strip()
 
 
 def normalize_institutional_login(login):
+    """Normaliza o sufixo informado pelo usuário para gerar login/e-mail institucional."""
     return str(login or "").split("@", 1)[0].lower().strip()
 
 
 def institutional_email(login):
+    """Monta o e-mail institucional a partir do sufixo de login."""
     return f"{normalize_institutional_login(login)}@ufam.edu.br"
 
 
 def valid_institutional_login(login):
+    """Valida se o sufixo de e-mail pode ser usado como login institucional."""
     return bool(re.fullmatch(r"[a-z0-9._-]+", normalize_institutional_login(login), re.IGNORECASE))
 
 
 def valid_siape(siape):
+    """Garante que o SIAPE informado possui exatamente sete dígitos."""
     return bool(re.fullmatch(r"\d{7}", str(siape or "")))
 
 
 def valid_room(room):
+    """Valida sala numérica com até três algarismos."""
     return bool(re.fullmatch(r"\d{1,3}", str(room or "")))
 
 
 def group_id_for_cargo(cargo):
+    """Sugere grupo inicial conforme o cargo declarado no primeiro acesso."""
     normalized = str(cargo or "").lower()
     if "docente" in normalized or "professor" in normalized:
         return 2
@@ -89,10 +108,12 @@ def group_id_for_cargo(cargo):
 
 
 def generate_temporary_password():
+    """Gera senha temporária para envio no fluxo de aprovação."""
     return f"Ufam@{secrets.randbelow(1000000):06d}"
 
 
 def group_dict(group):
+    """Serializa grupo para consumo do frontend."""
     return {
         "id": group.id,
         "nome": group.nome,
@@ -103,6 +124,7 @@ def group_dict(group):
 
 
 def demand_dict(demand):
+    """Serializa demanda e prazo estimado para formulários e relatórios."""
     return {
         "id": demand.id,
         "nome": demand.nome,
@@ -113,6 +135,7 @@ def demand_dict(demand):
 
 
 def location_dict(location):
+    """Serializa local físico para cadastro e seleção na solicitação."""
     return {
         "id": location.id,
         "nome": location.nome,
@@ -122,6 +145,7 @@ def location_dict(location):
 
 
 def block_dict(block):
+    """Serializa bloco com dados do local relacionado para filtros dependentes."""
     return {
         "id": block.id,
         "nome": block.nome,
@@ -134,6 +158,7 @@ def block_dict(block):
 
 
 def user_dict(user):
+    """Serializa usuário sem expor hash de senha ou dados internos sensíveis."""
     grupo_nome = user.group.nome if user.group_id else ""
     return {
         "id": user.id,
@@ -155,6 +180,7 @@ def user_dict(user):
 
 
 def request_dict(item, demand_deadlines=None):
+    """Serializa solicitação com prazo, localização composta e responsável atribuído."""
     if demand_deadlines is None:
         estimated_deadline = Demand.objects.filter(nome=item.categoria).values_list("prazo", flat=True).first()
     else:
@@ -183,6 +209,7 @@ def request_dict(item, demand_deadlines=None):
 
 
 def attachment_dict(item):
+    """Serializa anexo gravado em uma interação."""
     return {
         "id": item.id,
         "interaction_id": item.interaction_id,
@@ -196,6 +223,7 @@ def attachment_dict(item):
 
 
 def interaction_dict(item):
+    """Serializa interação e seus anexos para o histórico da solicitação."""
     return {
         "id": item.id,
         "request_id": item.request_id,
@@ -211,48 +239,59 @@ def interaction_dict(item):
 
 
 def request_detail_payload(item):
+    """Monta payload completo de uma solicitação com todo o histórico."""
     data = request_dict(item)
     data["interactions"] = [interaction_dict(interaction) for interaction in item.interactions.prefetch_related("attachments")]
     return data
 
 
 def is_admin(user):
+    """Determina se o usuário tem perfil administrativo efetivo."""
     return bool(user and (user.role == "admin" or (user.group and user.group.nome == "Administradores")))
 
 
 def is_protected_admin_group(group):
+    """Impede alterações destrutivas no grupo administrativo principal."""
     return group.nome.strip().casefold() == "administradores"
 
 
 def is_primary_admin(user):
+    """Identifica o administrador raiz preservado contra alterações críticas."""
     return bool(user and (user.id == 1 or user.login == "admin"))
 
 
 def is_resolved_status(status):
+    """Informa se a solicitação está em estado final de somente leitura."""
     return str(status or "").strip().lower() == "resolvido"
 
 
 def normalized_status(status):
+    """Normaliza status para comparações robustas de regra de negócio."""
     return str(status or "").strip().casefold()
 
 
 def is_open_status(status):
+    """Confere se a solicitação está aberta."""
     return normalized_status(status) == "aberto"
 
 
 def is_in_progress_status(status):
+    """Confere se a solicitação está em atendimento."""
     return normalized_status(status) == "em atendimento"
 
 
 def is_allowed_status(status):
+    """Restringe status aos valores válidos usados pela aplicação."""
     return status in ["Aberto", "Em Atendimento", "Resolvido"]
 
 
 def can_access_request(user, item):
+    """Autoriza acesso à solicitação para admin, dono ou e-mail vinculado."""
     return bool(is_admin(user) or item.owner_user_id == user.id or item.email == user.email)
 
 
 def current_user(request):
+    """Resolve o usuário autenticado a partir do token Bearer."""
     header = request.headers.get("Authorization", "")
     token = header.replace("Bearer ", "").strip()
     if not token:
@@ -265,6 +304,7 @@ def current_user(request):
 
 
 def require_user(request):
+    """Atalho para bloquear endpoints quando não há sessão válida."""
     user = current_user(request)
     if not user:
         return None, api_response({"detail": "Acesso não autorizado. Faça login novamente."}, 401)
@@ -272,6 +312,7 @@ def require_user(request):
 
 
 def admin_payload(user):
+    """Monta o bootstrap autenticado respeitando permissões do usuário."""
     demand_items = list(Demand.objects.all())
     location_items = list(Location.objects.all())
     block_items = list(Block.objects.select_related("location").all())
@@ -313,6 +354,7 @@ def admin_payload(user):
 
 
 def write_reset_email(email, code):
+    """Registra em arquivo local o e-mail simulado de recuperação de senha."""
     settings.DEV_MAILBOX_DIR.mkdir(exist_ok=True)
     safe_email = "".join(char if char.isalnum() else "_" for char in email)
     path = settings.DEV_MAILBOX_DIR / f"reset_{safe_email}.txt"
@@ -333,6 +375,7 @@ def write_reset_email(email, code):
 
 
 def write_approval_email(user, temporary_password):
+    """Registra em arquivo local o e-mail simulado de aprovação de cadastro."""
     settings.DEV_MAILBOX_DIR.mkdir(exist_ok=True)
     safe_email = "".join(char if char.isalnum() else "_" for char in user.email)
     path = settings.DEV_MAILBOX_DIR / f"approved_{safe_email}.txt"
@@ -356,6 +399,7 @@ def write_approval_email(user, temporary_password):
 
 
 def write_rejection_email(user):
+    """Registra em arquivo local o aviso de cadastro não autorizado."""
     settings.DEV_MAILBOX_DIR.mkdir(exist_ok=True)
     safe_email = "".join(char if char.isalnum() else "_" for char in user.email)
     path = settings.DEV_MAILBOX_DIR / f"rejected_{safe_email}.txt"
@@ -378,6 +422,7 @@ def write_rejection_email(user):
 @csrf_exempt
 @require_http_methods(["GET"])
 def public_bootstrap(request):
+    """Entrega dados públicos necessários para montar telas antes do login."""
     return api_response(
         {
             "demands": [demand_dict(item) for item in Demand.objects.filter(active=True)],
@@ -390,6 +435,7 @@ def public_bootstrap(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def admin_bootstrap(request):
+    """Entrega dados autenticados conforme permissão do usuário logado."""
     user, response = require_user(request)
     if response:
         return response
@@ -399,6 +445,7 @@ def admin_bootstrap(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def login(request):
+    """Autentica usuário aprovado, aplica bloqueio por tentativas e cria sessão."""
     payload = read_json(request)
     login_value = payload.get("login", "").strip()
     password = payload.get("password", "")
@@ -462,6 +509,7 @@ def login(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def register_user(request):
+    """Recebe solicitação de primeiro acesso e cria usuário pendente de aprovação."""
     payload = read_json(request)
     nome = payload.get("nome", "").strip()
     login_value = normalize_institutional_login(payload.get("login") or login_from_email(payload.get("email", "")))
@@ -502,6 +550,7 @@ def register_user(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def complete_first_access(request):
+    """Permite ao usuário aprovado trocar a senha temporária no primeiro acesso."""
     user, response = require_user(request)
     if response:
         return response
@@ -530,6 +579,7 @@ def complete_first_access(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def forgot_password(request):
+    """Gera código temporário para recuperação de senha."""
     payload = read_json(request)
     login_value = normalize_institutional_login(payload.get("login"))
     fallback_email = payload.get("email", "").strip().lower()
@@ -553,6 +603,7 @@ def forgot_password(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def reset_password(request):
+    """Valida código de recuperação e grava nova senha do usuário."""
     payload = read_json(request)
     email = payload.get("email", "").strip().lower()
     code = payload.get("code", "").strip()
@@ -581,6 +632,7 @@ def reset_password(request):
 
 
 def create_request_record(payload, owner_user=None):
+    """Cria solicitação e troca o protocolo provisório pelo padrão anual do sistema."""
     item = ServiceRequest.objects.create(
         protocolo="PENDENTE",
         owner_user=owner_user,
@@ -603,6 +655,7 @@ def create_request_record(payload, owner_user=None):
 @csrf_exempt
 @require_http_methods(["POST"])
 def requests_collection(request):
+    """Cria solicitação do usuário logado aplicando validações obrigatórias de negócio."""
     user, response = require_user(request)
     if response:
         return response
@@ -638,6 +691,7 @@ def requests_collection(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def request_detail_view(request, request_id):
+    """Retorna uma solicitação específica com histórico completo de interações."""
     user, response = require_user(request)
     if response:
         return response
@@ -652,6 +706,7 @@ def request_detail_view(request, request_id):
 @csrf_exempt
 @require_http_methods(["PUT"])
 def request_status(request, request_id):
+    """Atualiza status respeitando o fluxo Aberto -> Em Atendimento -> Resolvido."""
     user, response = require_user(request)
     if response:
         return response
@@ -714,6 +769,7 @@ def request_status(request, request_id):
 
 
 def save_uploaded_files(files):
+    """Valida e grava anexos enviados em interações."""
     saved = []
     settings.MEDIA_ROOT.mkdir(exist_ok=True)
     for file_obj in files:
@@ -744,6 +800,7 @@ def save_uploaded_files(files):
 @csrf_exempt
 @require_http_methods(["POST"])
 def create_interaction(request, request_id):
+    """Cria mensagem no histórico da solicitação e associa anexos opcionais."""
     user, response = require_user(request)
     if response:
         return response
@@ -783,6 +840,7 @@ def create_interaction(request, request_id):
 @csrf_exempt
 @require_http_methods(["PUT"])
 def edit_interaction(request, interaction_id):
+    """Permite ao autor editar sua própria interação enquanto a solicitação não foi resolvida."""
     user, response = require_user(request)
     if response:
         return response
@@ -810,6 +868,7 @@ def edit_interaction(request, interaction_id):
 @csrf_exempt
 @require_http_methods(["DELETE"])
 def delete_attachment(request, attachment_id):
+    """Remove anexo da interação quando o usuário logado é o autor."""
     user, response = require_user(request)
     if response:
         return response
@@ -834,6 +893,7 @@ def delete_attachment(request, attachment_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def groups_collection(request):
+    """Cria grupos de acesso administrativos."""
     user, response = require_user(request)
     if response:
         return response
@@ -850,6 +910,7 @@ def groups_collection(request):
 @csrf_exempt
 @require_http_methods(["PUT"])
 def update_group(request, group_id):
+    """Atualiza grupo comum preservando o grupo Administradores."""
     user, response = require_user(request)
     if response:
         return response
@@ -876,6 +937,7 @@ def update_group(request, group_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def users_collection(request):
+    """Cria novo usuário já aprovado pelo administrador."""
     user, response = require_user(request)
     if response:
         return response
@@ -931,6 +993,7 @@ def users_collection(request):
 @csrf_exempt
 @require_http_methods(["PUT"])
 def update_user(request, user_id):
+    """Atualiza dados cadastrais do usuário respeitando proteções do admin raiz."""
     acting_user, response = require_user(request)
     if response:
         return response
@@ -972,6 +1035,7 @@ def update_user(request, user_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def approve_user(request, user_id):
+    """Aprova cadastro pendente, define grupo e gera senha temporária."""
     acting_user, response = require_user(request)
     if response:
         return response
@@ -1003,6 +1067,7 @@ def approve_user(request, user_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def reject_user(request, user_id):
+    """Rejeita cadastro pendente, envia aviso simulado e remove o usuário."""
     acting_user, response = require_user(request)
     if response:
         return response
@@ -1021,6 +1086,7 @@ def reject_user(request, user_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def demands_collection(request):
+    """Cria tipos de demanda disponíveis no formulário."""
     user, response = require_user(request)
     if response:
         return response
@@ -1037,6 +1103,7 @@ def demands_collection(request):
 @csrf_exempt
 @require_http_methods(["PUT"])
 def update_demand(request, demand_id):
+    """Atualiza demanda e propaga renomeação para solicitações históricas."""
     user, response = require_user(request)
     if response:
         return response
@@ -1065,6 +1132,7 @@ def update_demand(request, demand_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def locations_collection(request):
+    """Cria locais físicos usados na abertura de solicitações."""
     user, response = require_user(request)
     if response:
         return response
@@ -1081,6 +1149,7 @@ def locations_collection(request):
 @csrf_exempt
 @require_http_methods(["PUT"])
 def update_location(request, location_id):
+    """Atualiza local e mantém solicitações históricas coerentes com o novo nome."""
     user, response = require_user(request)
     if response:
         return response
@@ -1108,6 +1177,7 @@ def update_location(request, location_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def blocks_collection(request):
+    """Cria blocos vinculados a um local."""
     user, response = require_user(request)
     if response:
         return response
@@ -1134,6 +1204,7 @@ def blocks_collection(request):
 @csrf_exempt
 @require_http_methods(["PUT"])
 def update_block(request, block_id):
+    """Atualiza bloco, seu local e referências textuais em solicitações já abertas."""
     user, response = require_user(request)
     if response:
         return response
