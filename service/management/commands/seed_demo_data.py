@@ -140,7 +140,6 @@ class Command(BaseCommand):
         """Garante locais e blocos usados pelas solicitações de demonstração."""
         specs = {
             "ICET": ["Bloco A", "Bloco B", "Bloco C", "Bloco D", "Bloco Administrativo"],
-            "Biblioteca Setorial": ["Atendimento"],
         }
         for location_name, blocks in specs.items():
             location, _ = Location.objects.update_or_create(nome=location_name, defaults={"active": True})
@@ -220,8 +219,8 @@ class Command(BaseCommand):
             {
                 "owner": by_login["diego.nascimento"],
                 "status": "Em Atendimento",
-                "local": "Biblioteca Setorial",
-                "bloco": "Biblioteca Setorial",
+                "local": "ICET",
+                "bloco": "Bloco A",
                 "sala": "302",
                 "categoria": "Acesso a Sistemas",
                 "descricao": "Usuários do atendimento relatam erro ao autenticar no sistema de patrimônio.",

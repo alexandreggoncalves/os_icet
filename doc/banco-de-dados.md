@@ -296,6 +296,8 @@ A migracao `0007_normalize_service_request_rooms` substitui salas existentes pel
 
 A migracao `0008_service_request_location_block_foreign_keys` converte os textos legados de local e bloco em `location_id` e `block_id`. Pares ainda nao cadastrados sao criados durante a conversao para preservar todas as solicitacoes.
 
+A migracao `0009_remove_biblioteca_setorial` transfere solicitacoes ligadas a `Biblioteca Setorial` para o `Bloco A` (ou primeiro bloco disponivel) do mesmo campus e remove o cadastro. Instalacoes que possuam um local com esse nome tambem sao consolidadas em outro local ativo.
+
 Aplicar migrations:
 
 ```bash
