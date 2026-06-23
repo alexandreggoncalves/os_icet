@@ -25,6 +25,9 @@
 | Gerenciar grupos | Sim | Nao | Nao |
 | Gerenciar usuarios | Sim | Nao | Nao |
 | Gerenciar demandas | Sim | Nao | Nao |
+| Gerenciar locais e blocos | Sim | Nao | Nao |
+| Atribuir responsavel ao atendimento | Sim | Nao | Nao |
+| Rejeitar cadastro pendente | Sim | Nao | Nao |
 | Acessar relatorios | Sim | Nao | Nao |
 
 Solicitacoes com status `Resolvido` ficam em modo somente leitura para todos os perfis.

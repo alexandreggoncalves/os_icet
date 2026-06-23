@@ -204,7 +204,7 @@ Regras:
 - SIAPE e obrigatorio e deve conter exatamente 7 digitos.
 - Qualquer dado pessoal enviado no corpo e substituido pelo valor persistido no usuario autenticado.
 - A solicitacao e vinculada ao usuario autenticado em `owner_user_id`.
-- Administrador pode registrar solicitacao em nome de terceiros.
+- Todo chamado usa os dados do usuario autenticado, inclusive quando ele pertence ao grupo Administradores.
 - O protocolo e gerado apos o insert, usando ano corrente e ID.
 
 ### `GET /api/requests/{id}`
@@ -224,11 +224,17 @@ Request:
 
 ```json
 {
-  "status": "Em Atendimento"
+  "status": "Em Atendimento",
+  "assigned_user_id": 1
 }
 ```
 
-Se a solicitacao ja estiver `Resolvido`, a API retorna `403`.
+Regras:
+
+- A passagem de `Aberto` para `Em Atendimento` exige `assigned_user_id` de usuario ativo, aprovado e pertencente ao grupo `Administradores`.
+- Nao permite passar diretamente de `Aberto` para `Resolvido` nem retornar de `Em Atendimento` para `Aberto`.
+- A atribuicao e as mudancas de status sao registradas no historico.
+- Se a solicitacao ja estiver `Resolvido`, a API retorna `403`.
 
 ## Interacoes
 
@@ -372,6 +378,10 @@ Efeitos:
 - Marca `first_login_required = true`.
 - Grava e-mail simulado em `dev_mailbox/`.
 
+### `POST /api/users/{id}/reject`
+
+Rejeita e remove somente um cadastro ainda pendente. Gera aviso simulado de nao autorizacao em `dev_mailbox/`. Usuarios aprovados nao podem ser removidos por esta rota.
+
 ### `POST /api/demands`
 
 ```json
@@ -392,6 +402,46 @@ Efeitos:
 ```
 
 Permite editar nome e prazo, desativar e reativar. Ao renomear, a categoria das solicitacoes historicas e atualizada. Demandas inativas não aparecem em novas solicitações. Não existe endpoint de exclusão de demandas.
+
+### `POST /api/locations`
+
+```json
+{
+  "nome": "Campus Principal"
+}
+```
+
+### `PUT /api/locations/{id}`
+
+```json
+{
+  "nome": "Campus Itacoatiara",
+  "active": true
+}
+```
+
+Permite editar, desativar e reativar locais. A renomeacao atualiza as solicitacoes historicas relacionadas.
+
+### `POST /api/blocks`
+
+```json
+{
+  "nome": "Bloco A",
+  "local_id": 1
+}
+```
+
+### `PUT /api/blocks/{id}`
+
+```json
+{
+  "nome": "Bloco Administrativo",
+  "local_id": 1,
+  "active": false
+}
+```
+
+O nome do bloco e unico dentro do local. Somente locais ativos podem receber blocos, e alteracoes de nome/local sao propagadas para as solicitacoes historicas correspondentes.
 
 ## Erros comuns
 

@@ -165,6 +165,29 @@ Tipos de demandas disponiveis no formulario.
 | `active` | `BooleanField` | Controla disponibilidade em novas solicitacoes |
 | `created_at` | `DateTimeField` | Data de criacao |
 
+### `locations`
+
+Locais fisicos disponiveis na abertura de solicitacoes.
+
+| Campo | Tipo Django | Observacao |
+| --- | --- | --- |
+| `id` | `BigAutoField` | Chave primaria |
+| `nome` | `CharField` | Unico |
+| `active` | `BooleanField` | Controla disponibilidade em novas solicitacoes |
+| `created_at` | `DateTimeField` | Data de criacao |
+
+### `blocks`
+
+Blocos vinculados a um local.
+
+| Campo | Tipo Django | Observacao |
+| --- | --- | --- |
+| `id` | `BigAutoField` | Chave primaria |
+| `location_id` | `ForeignKey` | Local ao qual o bloco pertence |
+| `nome` | `CharField` | Unico dentro do local |
+| `active` | `BooleanField` | Controla disponibilidade em novas solicitacoes |
+| `created_at` | `DateTimeField` | Data de criacao |
+
 ### `requests`
 
 Solicitacoes de atendimento.
@@ -174,10 +197,12 @@ Solicitacoes de atendimento.
 | `id` | `BigAutoField` | Chave primaria |
 | `protocolo` | `CharField` | Formato `OS-ANO-NNNNN` |
 | `owner_user_id` | `ForeignKey` | Usuario dono da solicitacao |
+| `assigned_user_id` | `ForeignKey` | Administrador responsavel pelo atendimento |
 | `nome` | `CharField` | Nome do solicitante |
 | `siape` | `CharField` | SIAPE do solicitante |
 | `email` | `EmailField` | E-mail do solicitante |
 | `perfil` | `CharField` | Perfil/grupo |
+| `local` | `CharField` | Nome historico do local selecionado |
 | `bloco` | `CharField` | Localizacao |
 | `sala` | `CharField` | Localizacao |
 | `categoria` | `CharField` | Tipo de demanda |

@@ -91,6 +91,7 @@ Para usuarios comuns:
 - Nome, SIAPE, e-mail e perfil sao preenchidos a partir do cadastro.
 - O SIAPE e obrigatorio, possui 7 digitos e nao pode ser substituido no formulario.
 - O usuario informa tipo de demanda, bloco, sala e descricao.
+- O usuario escolhe primeiro o local e depois um dos blocos ativos vinculados a ele.
 - A mesma regra vale para administradores: o chamado usa os dados da conta conectada e fica vinculado a ela.
 - Contas antigas sem SIAPE cadastrado devem ser regularizadas antes da abertura de chamados.
 - Para efeito de cadastro e permissao no ambiente inicial, o administrador master usa o SIAPE reservado `0000000`.
@@ -163,6 +164,8 @@ Fluxo:
 3. Aprovar cadastro.
 4. Conferir e-mail simulado em `dev_mailbox/`, quando necessario em ambiente local.
 
+O administrador tambem pode rejeitar o cadastro pendente. Nesse caso, o registro pendente e removido e um aviso simulado de nao autorizacao e gerado.
+
 ## Gerenciamento
 
 Restrito a administradores:
@@ -170,6 +173,7 @@ Restrito a administradores:
 - Grupos.
 - Usuarios.
 - Demandas.
+- Locais e blocos.
 
 Usuarios, grupos e demandas nao sao excluidos. Use ativar/desativar para preservar historico.
 
@@ -182,6 +186,10 @@ O usuario principal `admin` nao pode ser editado nem desativado pela tela admini
 Para editar grupos e demandas, clique na linha correspondente. Grupos permitem alterar nome e descricao; demandas permitem alterar nome e prazo. O botao separado ativa ou desativa o item.
 
 O grupo `Administradores` e protegido: nao pode ser editado nem desativado. Grupos inativos nao podem ser atribuidos a usuarios, e demandas inativas nao aparecem no formulario de nova solicitacao.
+
+Locais e blocos sao editados pelo clique na linha e podem ser desativados sem exclusao. A lista de blocos depende do local selecionado.
+
+Ao alterar uma solicitacao de `Aberto` para `Em Atendimento`, selecione o administrador responsavel. Consultas e relatorios permitem filtrar pelo usuario atribuido; a solicitacao resolvida preserva essa atribuicao no historico.
 
 ## Relatorios
 

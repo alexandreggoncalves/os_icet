@@ -40,6 +40,10 @@
 | RF34 | Permitir editar e desativar grupos, protegendo `Administradores` | Implementado |
 | RF35 | Permitir editar e desativar demandas sem exclusao | Implementado |
 | RF36 | Bloquear login por 15 minutos apos 3 senhas invalidas consecutivas | Implementado |
+| RF37 | Permitir cadastro, edicao e desativacao de locais e blocos | Implementado |
+| RF38 | Exigir atribuicao a um administrador ao iniciar atendimento | Implementado |
+| RF39 | Permitir rejeitar e remover somente cadastros pendentes | Implementado |
+| RF40 | Filtrar consultas e relatorios pelo usuario atribuido | Implementado |
 
 ## Regras de negocio
 
@@ -80,6 +84,9 @@
 
 - Status usados: `Aberto`, `Em Atendimento` e `Resolvido`.
 - Somente administradores alteram status.
+- A transicao de `Aberto` para `Em Atendimento` exige um usuario ativo e aprovado do grupo `Administradores`.
+- A solicitacao registra o usuario atribuido e inclui a atribuicao no historico de interacoes.
+- O fluxo nao permite passar diretamente de `Aberto` para `Resolvido` nem retornar de `Em Atendimento` para `Aberto`.
 - Solicitacao resolvida fica somente para leitura.
 - Uma solicitacao resolvida nao pode receber novas interacoes, edicoes ou exclusoes de anexo.
 
@@ -116,6 +123,14 @@
 - Demandas podem ter nome e prazo editados e podem ser desativadas ou reativadas.
 - Demandas inativas nao aparecem em novas solicitacoes, mas permanecem no historico.
 - Grupos e demandas nao possuem operacao de exclusao.
+
+### Locais, blocos e pendencias
+
+- Administradores cadastram, editam, ativam e desativam locais e blocos.
+- Cada bloco pertence a um local e seu nome e unico dentro desse local.
+- Locais ou blocos inativos nao aparecem em novas solicitacoes, mas permanecem no historico.
+- Renomear local ou bloco atualiza as referencias textuais das solicitacoes existentes.
+- Cadastros pendentes podem ser aprovados ou rejeitados; a rejeicao envia aviso simulado e remove apenas o cadastro ainda pendente.
 
 ### Dados de demonstracao
 
