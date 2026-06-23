@@ -370,21 +370,22 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(item.perfil, "Administradores")
         self.assertEqual(item.local, "ICET")
 
-    def test_request_requires_numeric_room_with_up_to_three_digits(self):
-        """Garante que sala aceite apenas numero com ate tres digitos."""
-        response = self.post_json(
-            "/api/requests",
-            {
-                "local": "ICET",
-                "bloco": "Bloco B",
-                "sala": "Sala 2",
-                "categoria": "Suporte Audiovisual",
-                "descricao": "Sala inválida.",
-            },
-            authenticated=True,
-        )
-
-        self.assertEqual(response.status_code, 422)
+    def test_request_requires_room_in_allowed_ranges(self):
+        """Garante salas de 101-120, 201-220 ou 301-320."""
+        for room in ["Sala 2", "01", "100", "121", "200", "221", "300", "321", "999"]:
+            with self.subTest(room=room):
+                response = self.post_json(
+                    "/api/requests",
+                    {
+                        "local": "ICET",
+                        "bloco": "Bloco B",
+                        "sala": room,
+                        "categoria": "Suporte Audiovisual",
+                        "descricao": "Sala inválida.",
+                    },
+                    authenticated=True,
+                )
+                self.assertEqual(response.status_code, 422)
 
     def test_open_request_cannot_be_resolved_before_in_progress(self):
         """Garante que solicitacao aberta nao seja resolvida sem atendimento previo."""
@@ -529,7 +530,7 @@ class UserRegistrationTests(TestCase):
             perfil="Docente",
             local="ICET",
             bloco="A",
-            sala="1",
+            sala="101",
             categoria=demand.nome,
             descricao="Solicitação histórica",
         )
@@ -575,7 +576,7 @@ class UserRegistrationTests(TestCase):
             perfil="Docente",
             local=location.nome,
             bloco=block.nome,
-            sala="12",
+            sala="112",
             categoria="Suporte",
             descricao="Solicitação histórica",
         )

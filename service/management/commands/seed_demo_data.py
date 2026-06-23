@@ -208,7 +208,7 @@ class Command(BaseCommand):
                 "status": "Em Atendimento",
                 "local": "ICET",
                 "bloco": "Bloco D",
-                "sala": "001",
+                "sala": "301",
                 "categoria": "Suporte Audiovisual",
                 "descricao": "Microfone sem fio apresenta ruídos constantes durante seminários.",
                 "interactions": [
@@ -222,7 +222,7 @@ class Command(BaseCommand):
                 "status": "Em Atendimento",
                 "local": "Biblioteca Setorial",
                 "bloco": "Biblioteca Setorial",
-                "sala": "010",
+                "sala": "302",
                 "categoria": "Acesso a Sistemas",
                 "descricao": "Usuários do atendimento relatam erro ao autenticar no sistema de patrimônio.",
                 "interactions": [
@@ -264,7 +264,7 @@ class Command(BaseCommand):
                 "status": "Resolvido",
                 "local": "ICET",
                 "bloco": "Bloco A",
-                "sala": "100",
+                "sala": "303",
                 "categoria": "Manutenção Predial",
                 "descricao": "Lâmpadas queimadas no corredor de acesso ao protocolo.",
                 "interactions": [

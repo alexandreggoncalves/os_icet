@@ -95,8 +95,8 @@ def valid_siape(siape):
 
 
 def valid_room(room):
-    """Valida sala numérica com até três algarismos."""
-    return bool(re.fullmatch(r"\d{1,3}", str(room or "")))
+    """Valida salas de 101 a 120, 201 a 220 ou 301 a 320."""
+    return bool(re.fullmatch(r"[123](?:0[1-9]|1\d|20)", str(room or "")))
 
 
 def group_id_for_cargo(cargo):
@@ -672,7 +672,7 @@ def requests_collection(request):
     if not valid_siape(payload["siape"]):
         return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
     if not valid_room(payload["sala"]):
-        return api_response({"detail": "A sala deve conter somente números, com até 3 dígitos."}, 422)
+        return api_response({"detail": "A sala deve estar entre 101-120, 201-220 ou 301-320."}, 422)
     if not Block.objects.filter(nome=payload["bloco"], location__nome=payload["local"], active=True, location__active=True).exists():
         return api_response({"detail": "Informe um bloco ativo vinculado ao local selecionado."}, 422)
     with transaction.atomic():

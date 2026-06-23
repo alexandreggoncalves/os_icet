@@ -92,6 +92,7 @@ Para usuarios comuns:
 - O SIAPE e obrigatorio, possui 7 digitos e nao pode ser substituido no formulario.
 - O usuario informa tipo de demanda, bloco, sala e descricao.
 - O usuario escolhe primeiro o local e depois um dos blocos ativos vinculados a ele.
+- A sala deve ser informada com tres algarismos entre `101-120`, `201-220` ou `301-320`.
 - A mesma regra vale para administradores: o chamado usa os dados da conta conectada e fica vinculado a ela.
 - Contas antigas sem SIAPE cadastrado devem ser regularizadas antes da abertura de chamados.
 - Para efeito de cadastro e permissao no ambiente inicial, o administrador master usa o SIAPE reservado `0000000`.

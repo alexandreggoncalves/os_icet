@@ -204,7 +204,7 @@ Solicitacoes de atendimento.
 | `perfil` | `CharField` | Perfil/grupo |
 | `local` | `CharField` | Nome historico do local selecionado |
 | `bloco` | `CharField` | Localizacao |
-| `sala` | `CharField` | Localizacao |
+| `sala` | `CharField` | Codigo numerico: 101-120, 201-220 ou 301-320 |
 | `categoria` | `CharField` | Tipo de demanda |
 | `descricao` | `TextField` | Descricao do problema |
 | `status` | `CharField` | Aberto, Em Atendimento ou Resolvido |
@@ -270,6 +270,8 @@ Tokens de sessao Bearer.
 ## Migracoes
 
 A migracao `0003_set_master_admin_siape` atribui o SIAPE reservado `0000000` ao usuario master de login `admin` apenas quando ele ainda nao possui SIAPE. O comando `seed_data` usa o mesmo valor nas instalacoes novas.
+
+A migracao `0007_normalize_service_request_rooms` substitui salas existentes pela sequencia `101, 201, 301, 102, 202, 302...`, limitada aos sufixos `01-20` e repetida quando houver mais de 60 solicitacoes.
 
 Aplicar migrations:
 

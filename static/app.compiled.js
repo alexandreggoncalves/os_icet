@@ -1046,7 +1046,7 @@ function RequestForm({
     col: "col-sm-6",
     inputMode: "numeric",
     maxLength: 3,
-    pattern: "[0-9]{1,3}"
+    pattern: "[123](0[1-9]|1[0-9]|20)"
   }), /*#__PURE__*/React.createElement(TextArea, {
     label: "Descrição sucinta da ocorrência",
     value: form.descricao,

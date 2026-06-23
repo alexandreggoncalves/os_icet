@@ -213,6 +213,7 @@ Validar manualmente:
 16. Edicao de usuario pelo clique na linha.
 17. Data/hora e prazo estimado na lista de solicitacoes.
 18. Carregamento inicial do frontend sem erros de sintaxe JavaScript.
+19. Sala restrita aos intervalos 101-120, 201-220 e 301-320.
 
 ## 13. Como trabalhar no Git
 

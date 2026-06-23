@@ -44,6 +44,7 @@
 | RF38 | Exigir atribuicao a um administrador ao iniciar atendimento | Implementado |
 | RF39 | Permitir rejeitar e remover somente cadastros pendentes | Implementado |
 | RF40 | Filtrar consultas e relatorios pelo usuario atribuido | Implementado |
+| RF41 | Restringir salas aos intervalos 101-120, 201-220 e 301-320 | Implementado |
 
 ## Regras de negocio
 
@@ -74,6 +75,7 @@
 - Todos os usuarios, inclusive administradores, criam solicitacoes com os proprios dados cadastrais.
 - O SIAPE da solicitacao e obrigatorio, deve ter 7 digitos e sempre vem do banco.
 - A solicitacao fica vinculada ao usuario autenticado para permitir o acompanhamento e as interacoes proprias.
+- A sala deve possuir tres algarismos e pertencer aos intervalos `101-120`, `201-220` ou `301-320`.
 - O administrador master de login `admin` recebe o SIAPE reservado `0000000` para permitir a abertura de solicitacoes iniciais.
 - Toda solicitacao recebe protocolo `OS-ANO-NNNNN`.
 - Ao criar solicitacao pelo endpoint principal, o sistema registra interacao inicial.
