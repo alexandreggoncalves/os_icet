@@ -216,6 +216,8 @@ Validar manualmente:
 19. Sala restrita aos intervalos 101-120, 201-220 e 301-320.
 20. Solicitacoes gravando `location_id` e `block_id`, sem colunas textuais `local` e `bloco`.
 21. Ausencia de local ou bloco chamado `Biblioteca Setorial` apos a migracao `0009`.
+22. `requests` contendo somente `owner_user_id`, `assigned_user_id`, `demand_id`, `location_id` e `block_id` para dados relacionais.
+23. `interactions` derivando autor e grupo de `user_id`, e `users` derivando papel administrativo de `group_id`.
 
 ## 13. Como trabalhar no Git
 

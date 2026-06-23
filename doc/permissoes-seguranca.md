@@ -42,7 +42,7 @@ Funcoes principais em `service/views.py`:
 | --- | --- |
 | `current_user(request)` | Le token Bearer, remove tokens expirados e busca sessao valida |
 | `require_user(request)` | Bloqueia endpoint sem autenticacao |
-| `is_admin(user)` | Identifica administradores por `role` ou grupo |
+| `is_admin(user)` | Identifica administradores exclusivamente pelo grupo `Administradores` |
 | `is_primary_admin(user)` | Protege usuario principal `admin` |
 | `is_protected_admin_group(group)` | Impede edicao ou desativacao do grupo `Administradores` |
 | `can_access_request(user, item)` | Valida acesso a solicitacao |

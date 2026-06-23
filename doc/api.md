@@ -175,10 +175,7 @@ Request:
 
 ```json
 {
-  "nome": "Mariana Costa",
-  "siape": "2314578",
-  "email": "mariana.costa@ufam.edu.br",
-  "perfil": "Docente",
+  "demand_id": 1,
   "location_id": 1,
   "block_id": 5,
   "sala": "101",
@@ -206,7 +203,9 @@ Regras:
 - Qualquer dado pessoal enviado no corpo e substituido pelo valor persistido no usuario autenticado.
 - A solicitacao e vinculada ao usuario autenticado em `owner_user_id`.
 - `location_id` e `block_id` sao obrigatorios, devem estar ativos e o bloco deve pertencer ao local informado.
+- `demand_id` e obrigatorio e deve apontar para uma demanda ativa.
 - A resposta mantem `local` e `bloco` com nomes legiveis, alem dos respectivos IDs.
+- A resposta mantem `nome`, `email`, `siape`, `perfil` e `categoria` para compatibilidade, mas esses valores sao derivados de `owner_user_id`, `group_id` e `demand_id`.
 - `sala` aceita somente `101-120`, `201-220` ou `301-320`.
 - Todo chamado usa os dados do usuario autenticado, inclusive quando ele pertence ao grupo Administradores.
 - O protocolo e gerado apos o insert, usando ano corrente e ID.

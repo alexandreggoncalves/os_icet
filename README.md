@@ -75,6 +75,7 @@ tecnico / Tecnico@1234
 - Gerenciamento de grupos, usuários e demandas com edição e ativação/desativação sem exclusão
 - Gerenciamento de locais e blocos usados na abertura das solicitações
 - Atribuição de solicitações em atendimento a usuários administradores
+- Modelo relacional normalizado com usuários, demandas, locais e blocos gravados por FK
 - Aprovação ou rejeição de cadastros pendentes
 - Proteção do grupo `Administradores` contra edição e desativação
 - Login institucional com e-mail derivado automaticamente como `login@ufam.edu.br`

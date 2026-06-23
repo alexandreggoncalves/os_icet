@@ -22,6 +22,7 @@ erDiagram
     LOCATIONS ||--o{ BLOCKS : possui
     LOCATIONS ||--o{ REQUESTS : localiza
     BLOCKS ||--o{ REQUESTS : localiza
+    DEMANDS ||--o{ REQUESTS : classifica
     REQUESTS ||--o{ INTERACTIONS : contem
     USERS ||--o{ INTERACTIONS : escreve
     INTERACTIONS ||--o{ ATTACHMENTS : possui
@@ -45,7 +46,6 @@ erDiagram
         bigint group_id FK
         varchar siape UK
         varchar cargo
-        varchar role
         boolean active
         varchar approval_status
         boolean first_login_required
@@ -83,12 +83,8 @@ erDiagram
         bigint assigned_user_id FK
         bigint location_id FK
         bigint block_id FK
-        varchar nome
-        varchar siape
-        varchar email
-        varchar perfil
+        bigint demand_id FK
         varchar sala
-        varchar categoria
         text descricao
         varchar status
         timestamptz created_at
@@ -99,8 +95,6 @@ erDiagram
         bigint id PK
         bigint request_id FK
         bigint user_id FK
-        varchar autor_nome
-        varchar autor_grupo
         text mensagem
         varchar tipo
         timestamptz created_at
@@ -164,7 +158,6 @@ Usuarios autenticaveis do sistema.
 | `group_id` | `ForeignKey` | FK para `groups` |
 | `siape` | `CharField` | Unico, opcional |
 | `cargo` | `CharField` | Cargo informado no cadastro |
-| `role` | `CharField` | `admin` ou `user` |
 | `active` | `BooleanField` | Permite bloquear login |
 | `approval_status` | `CharField` | `pending` ou `approved` |
 | `first_login_required` | `BooleanField` | Obriga troca de senha provisoria |
@@ -219,14 +212,10 @@ Solicitacoes de atendimento.
 | `protocolo` | `CharField` | Formato `OS-ANO-NNNNN` |
 | `owner_user_id` | `ForeignKey` | Usuario dono da solicitacao |
 | `assigned_user_id` | `ForeignKey` | Administrador responsavel pelo atendimento |
-| `nome` | `CharField` | Nome do solicitante |
-| `siape` | `CharField` | SIAPE do solicitante |
-| `email` | `EmailField` | E-mail do solicitante |
-| `perfil` | `CharField` | Perfil/grupo |
 | `location_id` | `ForeignKey` | FK protegida para `locations` |
 | `block_id` | `ForeignKey` | FK protegida para `blocks` |
+| `demand_id` | `ForeignKey` | FK protegida para `demands` |
 | `sala` | `CharField` | Codigo numerico: 101-120, 201-220 ou 301-320 |
-| `categoria` | `CharField` | Tipo de demanda |
 | `descricao` | `TextField` | Descricao do problema |
 | `status` | `CharField` | Aberto, Em Atendimento ou Resolvido |
 | `created_at` | `DateTimeField` | Data de abertura |
@@ -241,8 +230,6 @@ Historico de conversas dentro da solicitacao.
 | `id` | `BigAutoField` | Chave primaria |
 | `request_id` | `ForeignKey` | FK para `requests` |
 | `user_id` | `ForeignKey` | Autor |
-| `autor_nome` | `CharField` | Nome gravado no momento |
-| `autor_grupo` | `CharField` | Grupo gravado no momento |
 | `mensagem` | `TextField` | Conteudo da interacao |
 | `tipo` | `CharField` | `sistema` ou `mensagem` |
 | `created_at` | `DateTimeField` | Data de criacao |
@@ -297,6 +284,15 @@ A migracao `0007_normalize_service_request_rooms` substitui salas existentes pel
 A migracao `0008_service_request_location_block_foreign_keys` converte os textos legados de local e bloco em `location_id` e `block_id`. Pares ainda nao cadastrados sao criados durante a conversao para preservar todas as solicitacoes.
 
 A migracao `0009_remove_biblioteca_setorial` transfere solicitacoes ligadas a `Biblioteca Setorial` para o `Bloco A` (ou primeiro bloco disponivel) do mesmo campus e remove o cadastro. Instalacoes que possuam um local com esse nome tambem sao consolidadas em outro local ativo.
+
+A migracao `0010_normalize_request_and_interaction_relations` converte `requests.categoria` em `demand_id`, remove copias textuais dos dados do solicitante e da autoria das interacoes e elimina `users.role`. Esses dados passam a ser obtidos exclusivamente pelas FKs `owner_user_id`, `demand_id`, `user_id` e `group_id`.
+
+### Campos textuais mantidos apos a auditoria
+
+- `requests.status` e `interactions.tipo`: valores enumerados sem tabela propria.
+- `requests.sala`: codigo numerico sem entidade de sala cadastrada.
+- `users.cargo`: descricao funcional livre, diferente do grupo de acesso.
+- Metadados de anexos e mensagens: conteudo proprio das entidades, nao relacoes.
 
 Aplicar migrations:
 

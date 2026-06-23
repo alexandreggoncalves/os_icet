@@ -30,7 +30,6 @@ class User(models.Model):
     group = models.ForeignKey(AccessGroup, null=True, blank=True, on_delete=models.SET_NULL, db_column="group_id")
     siape = models.CharField(max_length=40, null=True, blank=True, unique=True)
     cargo = models.CharField(max_length=120, null=True, blank=True)
-    role = models.CharField(max_length=20, default="user")
     active = models.BooleanField(default=True)
     approval_status = models.CharField(max_length=20, default="approved")
     first_login_required = models.BooleanField(default=False)
@@ -108,7 +107,7 @@ class ServiceRequest(models.Model):
     """Solicitação de serviço aberta pelo usuário e acompanhada pela equipe de TI."""
 
     protocolo = models.CharField(max_length=32, unique=True)
-    owner_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, db_column="owner_user_id")
+    owner_user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="owned_requests", db_column="owner_user_id")
     assigned_user = models.ForeignKey(
         User,
         null=True,
@@ -117,14 +116,10 @@ class ServiceRequest(models.Model):
         related_name="assigned_requests",
         db_column="assigned_user_id",
     )
-    nome = models.CharField(max_length=180)
-    siape = models.CharField(max_length=40)
-    email = models.EmailField()
-    perfil = models.CharField(max_length=120)
     location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="requests", db_column="location_id")
     block = models.ForeignKey(Block, on_delete=models.PROTECT, related_name="requests", db_column="block_id")
+    demand = models.ForeignKey(Demand, on_delete=models.PROTECT, related_name="requests", db_column="demand_id")
     sala = models.CharField(max_length=120)
-    categoria = models.CharField(max_length=180)
     descricao = models.TextField()
     status = models.CharField(max_length=40, default="Aberto")
     created_at = models.DateTimeField(default=timezone.now)
@@ -150,9 +145,7 @@ class Interaction(models.Model):
     """Registro de conversa, feedback ou ação automática dentro de uma solicitação."""
 
     request = models.ForeignKey(ServiceRequest, on_delete=models.CASCADE, related_name="interactions")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="interactions")
-    autor_nome = models.CharField(max_length=180)
-    autor_grupo = models.CharField(max_length=160)
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="interactions")
     mensagem = models.TextField()
     tipo = models.CharField(max_length=40, default="mensagem")
     created_at = models.DateTimeField(default=timezone.now)

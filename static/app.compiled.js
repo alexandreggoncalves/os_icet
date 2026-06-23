@@ -71,14 +71,10 @@ const pages = [{
   management: true
 }];
 const emptyRequest = {
-  nome: "",
-  siape: "",
-  email: "",
-  perfil: "Docente",
   location_id: "",
   block_id: "",
   sala: "",
-  categoria: "Manutenção de Hardware",
+  demand_id: "",
   descricao: ""
 };
 // Componente raiz: controla estado global, navegação, autenticação e chamadas da API.
@@ -953,11 +949,7 @@ function RequestForm({
     }
   }, [form.location_id, blocks]);
   const requestPayload = {
-    ...form,
-    nome: user.nome,
-    siape: registeredSiape,
-    email: user.email,
-    perfil: user.grupo_nome
+    ...form
   };
   // Atualiza campo do formulário e aplica máscaras quando necessário.
   function update(field, value) {
@@ -1023,9 +1015,12 @@ function RequestForm({
     disabled: true
   }), /*#__PURE__*/React.createElement(Select, {
     label: "Tipo de demanda",
-    value: form.categoria,
-    onChange: v => update("categoria", v),
-    options: demands.filter(item => item.active !== false).map(item => item.nome),
+    value: String(form.demand_id),
+    onChange: v => update("demand_id", v),
+    options: demands.filter(item => item.active !== false).map(item => ({
+      value: String(item.id),
+      label: item.nome
+    })),
     col: "col-sm-6"
   }), /*#__PURE__*/React.createElement(Select, {
     label: "Local",

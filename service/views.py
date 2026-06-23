@@ -169,7 +169,7 @@ def user_dict(user):
         "grupo_id": user.group_id,
         "siape": user.siape,
         "cargo": user.cargo,
-        "role": user.role,
+        "role": "admin" if grupo_nome == "Administradores" else "user",
         "grupo_nome": grupo_nome,
         "active": user.active,
         "approval_status": user.approval_status,
@@ -179,29 +179,29 @@ def user_dict(user):
     }
 
 
-def request_dict(item, demand_deadlines=None):
+def request_dict(item):
     """Serializa solicitação com prazo, localização composta e responsável atribuído."""
-    if demand_deadlines is None:
-        estimated_deadline = Demand.objects.filter(nome=item.categoria).values_list("prazo", flat=True).first()
-    else:
-        estimated_deadline = demand_deadlines.get(item.categoria)
+    owner = item.owner_user
+    owner_group_name = owner.group.nome if owner.group_id else ""
+    estimated_deadline = item.demand.prazo
     return {
         "id": item.id,
         "protocolo": item.protocolo,
         "owner_user_id": item.owner_user_id,
         "assigned_user_id": item.assigned_user_id,
         "assigned_user_nome": item.assigned_user.nome if item.assigned_user_id else "",
-        "nome": item.nome,
-        "siape": item.siape,
-        "email": item.email,
-        "perfil": item.perfil,
+        "nome": owner.nome,
+        "siape": owner.siape or "",
+        "email": owner.email,
+        "perfil": owner_group_name,
         "location_id": item.location_id,
         "local_id": item.location_id,
         "block_id": item.block_id,
         "local": item.location.nome,
         "bloco": item.block.nome,
         "sala": item.sala,
-        "categoria": item.categoria,
+        "demand_id": item.demand_id,
+        "categoria": item.demand.nome,
         "prazo_estimado": estimated_deadline or "Não informado",
         "descricao": item.descricao,
         "status": item.status,
@@ -231,8 +231,8 @@ def interaction_dict(item):
         "id": item.id,
         "request_id": item.request_id,
         "user_id": item.user_id,
-        "autor_nome": item.autor_nome,
-        "autor_grupo": item.autor_grupo,
+        "autor_nome": item.user.nome,
+        "autor_grupo": item.user.group.nome if item.user.group_id else "",
         "mensagem": item.mensagem,
         "tipo": item.tipo,
         "created_at": format_dt(item.created_at),
@@ -244,13 +244,13 @@ def interaction_dict(item):
 def request_detail_payload(item):
     """Monta payload completo de uma solicitação com todo o histórico."""
     data = request_dict(item)
-    data["interactions"] = [interaction_dict(interaction) for interaction in item.interactions.prefetch_related("attachments")]
+    data["interactions"] = [interaction_dict(interaction) for interaction in item.interactions.select_related("user__group").prefetch_related("attachments")]
     return data
 
 
 def is_admin(user):
     """Determina se o usuário tem perfil administrativo efetivo."""
-    return bool(user and (user.role == "admin" or (user.group and user.group.nome == "Administradores")))
+    return bool(user and user.group and user.group.nome == "Administradores")
 
 
 def is_protected_admin_group(group):
@@ -290,7 +290,7 @@ def is_allowed_status(status):
 
 def can_access_request(user, item):
     """Autoriza acesso à solicitação para admin, dono ou e-mail vinculado."""
-    return bool(is_admin(user) or item.owner_user_id == user.id or item.email == user.email)
+    return bool(is_admin(user) or item.owner_user_id == user.id)
 
 
 def current_user(request):
@@ -325,15 +325,14 @@ def admin_payload(user):
     demands = [demand_dict(item) for item in visible_demands]
     locations = [location_dict(item) for item in visible_locations]
     blocks = [block_dict(item) for item in visible_blocks]
-    demand_deadlines = {item.nome: item.prazo for item in demand_items}
     groups = [group_dict(item) for item in AccessGroup.objects.all()]
     users = [user_dict(item) for item in User.objects.select_related("group").order_by("-approval_status", "nome")]
     if is_admin(user):
-        requests = [request_dict(item, demand_deadlines) for item in ServiceRequest.objects.select_related("assigned_user", "location", "block").all()]
+        requests = [request_dict(item) for item in ServiceRequest.objects.select_related("assigned_user", "owner_user__group", "location", "block", "demand").all()]
     else:
         requests = [
-            request_dict(item, demand_deadlines)
-            for item in (ServiceRequest.objects.filter(owner_user=user) | ServiceRequest.objects.filter(email=user.email)).select_related("assigned_user", "location", "block")
+            request_dict(item)
+            for item in ServiceRequest.objects.filter(owner_user=user).select_related("assigned_user", "owner_user__group", "location", "block", "demand")
         ]
         groups = []
         users = []
@@ -540,7 +539,6 @@ def register_user(request):
             cargo=cargo,
             password_hash=make_password(secrets.token_urlsafe(32)),
             group=group,
-            role="user",
             active=False,
             approval_status="pending",
             first_login_required=True,
@@ -646,17 +644,23 @@ def create_request_record(payload, owner_user=None):
             block = block_query.filter(nome=payload.get("bloco"), location__nome=payload.get("local")).first()
     if not block:
         raise ValueError("Bloco e local da solicitação não foram encontrados.")
+    demand = payload.get("_demand")
+    if not demand:
+        demand_query = Demand.objects.all()
+        demand_id = payload.get("demand_id")
+        if demand_id:
+            demand = demand_query.filter(id=demand_id).first()
+        else:
+            demand = demand_query.filter(nome=payload.get("categoria")).first()
+    if not demand:
+        raise ValueError("Demanda da solicitação não foi encontrada.")
     item = ServiceRequest.objects.create(
         protocolo="PENDENTE",
         owner_user=owner_user,
-        nome=payload["nome"],
-        siape=payload["siape"],
-        email=payload["email"],
-        perfil=payload["perfil"],
         location=block.location,
         block=block,
+        demand=demand,
         sala=payload["sala"],
-        categoria=payload["categoria"],
         descricao=payload["descricao"],
         status=payload.get("status", "Aberto"),
     )
@@ -673,16 +677,12 @@ def requests_collection(request):
     if response:
         return response
     payload = read_json(request)
-    payload["nome"] = user.nome
-    payload["siape"] = user.siape or ""
-    payload["email"] = user.email
-    payload["perfil"] = user.group.nome if user.group_id else ""
     owner_user = user
-    required = ["nome", "siape", "email", "perfil", "location_id", "block_id", "sala", "categoria", "descricao"]
+    required = ["location_id", "block_id", "demand_id", "sala", "descricao"]
     missing = [field for field in required if not str(payload.get(field, "")).strip()]
     if missing:
         return api_response({"detail": f"Campos obrigatórios ausentes: {', '.join(missing)}"}, 422)
-    if not valid_siape(payload["siape"]):
+    if not valid_siape(user.siape):
         return api_response({"detail": "O SIAPE deve conter exatamente 7 dígitos."}, 422)
     if not valid_room(payload["sala"]):
         return api_response({"detail": "A sala deve estar entre 101-120, 201-220 ou 301-320."}, 422)
@@ -699,14 +699,20 @@ def requests_collection(request):
     ).first()
     if not block:
         return api_response({"detail": "Informe um bloco ativo vinculado ao local selecionado."}, 422)
+    try:
+        demand_id = int(payload.get("demand_id") or 0)
+    except (TypeError, ValueError):
+        return api_response({"detail": "Informe uma demanda válida."}, 422)
+    demand = Demand.objects.filter(id=demand_id, active=True).first()
+    if not demand:
+        return api_response({"detail": "Informe uma demanda ativa."}, 422)
     payload["_block"] = block
+    payload["_demand"] = demand
     with transaction.atomic():
         item = create_request_record(payload, owner_user)
         Interaction.objects.create(
             request=item,
             user=user,
-            autor_nome=user.nome,
-            autor_grupo=user.group.nome if user.group_id else "",
             mensagem="Solicitação cadastrada no sistema.",
             tipo="sistema",
         )
@@ -720,7 +726,7 @@ def request_detail_view(request, request_id):
     user, response = require_user(request)
     if response:
         return response
-    item = ServiceRequest.objects.select_related("assigned_user", "location", "block").prefetch_related("interactions__attachments").filter(id=request_id).first()
+    item = ServiceRequest.objects.select_related("assigned_user", "owner_user__group", "location", "block", "demand").prefetch_related("interactions__user__group", "interactions__attachments").filter(id=request_id).first()
     if not item:
         return api_response({"detail": "Solicitação não encontrada."}, 404)
     if not can_access_request(user, item):
@@ -737,7 +743,7 @@ def request_status(request, request_id):
         return response
     if not is_admin(user):
         return api_response({"detail": "Seu grupo não tem permissão para atualizar status."}, 403)
-    item = ServiceRequest.objects.select_related("assigned_user", "location", "block").filter(id=request_id).first()
+    item = ServiceRequest.objects.select_related("assigned_user", "owner_user__group", "location", "block", "demand").filter(id=request_id).first()
     if not item:
         return api_response({"detail": "Solicitação não encontrada."}, 404)
     if is_resolved_status(item.status):
@@ -776,8 +782,6 @@ def request_status(request, request_id):
         Interaction.objects.create(
             request=item,
             user=user,
-            autor_nome=user.nome,
-            autor_grupo=user.group.nome if user.group_id else "",
             mensagem=f"Status alterado para Em Atendimento. Atendimento atribuido a {assigned_user.nome}.",
             tipo="status",
         )
@@ -785,8 +789,6 @@ def request_status(request, request_id):
         Interaction.objects.create(
             request=item,
             user=user,
-            autor_nome=user.nome,
-            autor_grupo=user.group.nome if user.group_id else "",
             mensagem="Status alterado para Resolvido.",
             tipo="status",
         )
@@ -849,8 +851,6 @@ def create_interaction(request, request_id):
         interaction = Interaction.objects.create(
             request=item,
             user=user,
-            autor_nome=user.nome,
-            autor_grupo=user.group.nome if user.group_id else "",
             mensagem=mensagem,
             tipo="mensagem",
         )
@@ -995,7 +995,6 @@ def users_collection(request):
             siape=siape,
             password_hash=make_password(temporary_password),
             group_id=group_id,
-            role="user",
             active=True,
             approval_status="approved",
             first_login_required=True,
@@ -1138,17 +1137,13 @@ def update_demand(request, demand_id):
     if not item:
         return api_response({"detail": "Demanda não encontrada."}, 404)
     payload = read_json(request)
-    old_name = item.nome
     item.nome = payload.get("nome", item.nome).strip()
     item.prazo = payload.get("prazo", item.prazo).strip()
     item.active = bool(payload.get("active", item.active))
     if not item.nome or not item.prazo:
         return api_response({"detail": "Informe o nome e o prazo da demanda."}, 422)
     try:
-        with transaction.atomic():
-            item.save(update_fields=["nome", "prazo", "active"])
-            if old_name != item.nome:
-                ServiceRequest.objects.filter(categoria=old_name).update(categoria=item.nome)
+        item.save(update_fields=["nome", "prazo", "active"])
     except IntegrityError:
         return api_response({"detail": "Já existe uma demanda com este nome."}, 422)
     return api_response({"item": demand_dict(item)})

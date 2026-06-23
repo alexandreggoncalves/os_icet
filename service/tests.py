@@ -22,6 +22,7 @@ class UserRegistrationTests(TestCase):
         self.location, _ = Location.objects.get_or_create(nome="ICET")
         self.block_a, _ = Block.objects.get_or_create(location=self.location, nome="Bloco A")
         self.block_b, _ = Block.objects.get_or_create(location=self.location, nome="Bloco B")
+        self.demand, _ = Demand.objects.get_or_create(nome="Suporte Audiovisual", defaults={"prazo": "1 dia útil"})
         self.admin = User.objects.create(
             nome="Administrador",
             login="admin",
@@ -29,7 +30,6 @@ class UserRegistrationTests(TestCase):
             siape="1000001",
             password_hash=make_password("Admin@123"),
             group=self.admin_group,
-            role="admin",
         )
         SessionToken.objects.create(
             token="admin-test-token",
@@ -56,14 +56,10 @@ class UserRegistrationTests(TestCase):
         payload = {
             "protocolo": f"OS-TESTE-{ServiceRequest.objects.count() + 1:03d}",
             "owner_user": self.admin,
-            "nome": "Solicitante",
-            "siape": "1234567",
-            "email": "solicitante@ufam.edu.br",
-            "perfil": "Docente",
             "location": self.location,
             "block": self.block_a,
+            "demand": self.demand,
             "sala": "101",
-            "categoria": "Suporte Audiovisual",
             "descricao": "Chamado de teste.",
             "status": "Aberto",
         }
@@ -316,7 +312,6 @@ class UserRegistrationTests(TestCase):
             siape="2468135",
             password_hash=make_password("Solicitante@123"),
             group=self.docente_group,
-            role="user",
         )
         SessionToken.objects.create(
             token="requester-token",
@@ -332,7 +327,7 @@ class UserRegistrationTests(TestCase):
                     "location_id": self.location.id,
                     "block_id": self.block_a.id,
                     "sala": "101",
-                    "categoria": "Suporte Audiovisual",
+                    "demand_id": self.demand.id,
                     "descricao": "Teste de SIAPE cadastrado.",
                 }
             ),
@@ -341,7 +336,7 @@ class UserRegistrationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(ServiceRequest.objects.get().siape, "2468135")
+        self.assertEqual(ServiceRequest.objects.get().owner_user.siape, "2468135")
 
     def test_admin_request_uses_own_registered_data_and_ownership(self):
         """Garante que admin tambem abra solicitacao com seus proprios dados."""
@@ -355,7 +350,7 @@ class UserRegistrationTests(TestCase):
                 "location_id": self.location.id,
                 "block_id": self.block_b.id,
                 "sala": "102",
-                "categoria": "Suporte Audiovisual",
+                "demand_id": self.demand.id,
                 "descricao": "Chamado aberto pelo administrador.",
             },
             authenticated=True,
@@ -364,10 +359,10 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(response.status_code, 201)
         item = ServiceRequest.objects.get()
         self.assertEqual(item.owner_user, self.admin)
-        self.assertEqual(item.nome, self.admin.nome)
-        self.assertEqual(item.siape, self.admin.siape)
-        self.assertEqual(item.email, self.admin.email)
-        self.assertEqual(item.perfil, "Administradores")
+        self.assertEqual(item.owner_user.nome, self.admin.nome)
+        self.assertEqual(item.owner_user.siape, self.admin.siape)
+        self.assertEqual(item.owner_user.email, self.admin.email)
+        self.assertEqual(item.owner_user.group, self.admin_group)
         self.assertEqual(item.location, self.location)
         self.assertEqual(item.block, self.block_b)
 
@@ -381,7 +376,7 @@ class UserRegistrationTests(TestCase):
                         "location_id": self.location.id,
                         "block_id": self.block_b.id,
                         "sala": room,
-                        "categoria": "Suporte Audiovisual",
+                        "demand_id": self.demand.id,
                         "descricao": "Sala inválida.",
                     },
                     authenticated=True,
@@ -399,7 +394,7 @@ class UserRegistrationTests(TestCase):
                 "location_id": self.location.id,
                 "block_id": other_block.id,
                 "sala": "101",
-                "categoria": "Suporte Audiovisual",
+                "demand_id": self.demand.id,
                 "descricao": "Relacao de local e bloco invalida.",
             },
             authenticated=True,
@@ -545,14 +540,11 @@ class UserRegistrationTests(TestCase):
         demand = Demand.objects.create(nome="Demanda antiga", prazo="2 dias úteis")
         service_request = ServiceRequest.objects.create(
             protocolo="OS-TESTE-001",
-            nome="Solicitante",
-            siape="1234567",
-            email="solicitante@ufam.edu.br",
-            perfil="Docente",
+            owner_user=self.admin,
             location=self.location,
             block=self.block_a,
+            demand=demand,
             sala="101",
-            categoria=demand.nome,
             descricao="Solicitação histórica",
         )
 
@@ -566,7 +558,7 @@ class UserRegistrationTests(TestCase):
         service_request.refresh_from_db()
         self.assertEqual(demand.prazo, "5 dias úteis")
         self.assertFalse(demand.active)
-        self.assertEqual(service_request.categoria, "Demanda atualizada")
+        self.assertEqual(service_request.demand.nome, "Demanda atualizada")
 
         delete_response = self.client.delete(
             f"/api/demands/{demand.id}",
@@ -591,14 +583,11 @@ class UserRegistrationTests(TestCase):
 
         service_request = ServiceRequest.objects.create(
             protocolo="OS-TESTE-002",
-            nome="Solicitante",
-            siape="7654321",
-            email="solicitante@ufam.edu.br",
-            perfil="Docente",
+            owner_user=self.admin,
             location=location,
             block=block,
+            demand=self.demand,
             sala="112",
-            categoria="Suporte",
             descricao="Solicitação histórica",
         )
 

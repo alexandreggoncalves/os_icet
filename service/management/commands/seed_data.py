@@ -37,7 +37,6 @@ class Command(BaseCommand):
                     "siape": "0000000",
                     "password_hash": make_password("admin1234"),
                     "group": admin_group,
-                    "role": "admin",
                     "active": True,
                     "approval_status": "approved",
                     "first_login_required": False,
@@ -53,7 +52,6 @@ class Command(BaseCommand):
                     "cargo": "Docente",
                     "password_hash": make_password("Docente@1234"),
                     "group": docente_group,
-                    "role": "user",
                     "active": True,
                     "approval_status": "approved",
                     "first_login_required": False,
@@ -69,7 +67,6 @@ class Command(BaseCommand):
                     "cargo": "Técnico Administrativo em Educação",
                     "password_hash": make_password("Tecnico@1234"),
                     "group": tecnico_group,
-                    "role": "user",
                     "active": True,
                     "approval_status": "approved",
                     "first_login_required": False,
@@ -144,8 +141,6 @@ class Command(BaseCommand):
                     Interaction.objects.create(
                         request=item,
                         user=owner,
-                        autor_nome=owner.nome,
-                        autor_grupo=owner.group.nome,
                         mensagem="Solicitação cadastrada no sistema.",
                         tipo="sistema",
                     )

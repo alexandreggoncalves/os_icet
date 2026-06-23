@@ -116,7 +116,6 @@ class Command(BaseCommand):
                     "cargo": spec["cargo"],
                     "password_hash": make_password(DEMO_PASSWORD),
                     "group": spec["group"],
-                    "role": "user",
                     "active": True,
                     "approval_status": "approved",
                     "first_login_required": False,
@@ -303,8 +302,6 @@ class Command(BaseCommand):
                 Interaction.objects.create(
                     request=item,
                     user=user,
-                    autor_nome=user.nome,
-                    autor_grupo=user.group.nome if user.group_id else "",
                     mensagem=message,
                     tipo=kind,
                     created_at=created_at + timezone.timedelta(hours=offset),
