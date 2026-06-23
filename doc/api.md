@@ -179,7 +179,8 @@ Request:
   "siape": "2314578",
   "email": "mariana.costa@ufam.edu.br",
   "perfil": "Docente",
-  "bloco": "Bloco B",
+  "location_id": 1,
+  "block_id": 5,
   "sala": "101",
   "categoria": "Manutencao de Hardware",
   "descricao": "Computador nao liga."
@@ -204,6 +205,8 @@ Regras:
 - SIAPE e obrigatorio e deve conter exatamente 7 digitos.
 - Qualquer dado pessoal enviado no corpo e substituido pelo valor persistido no usuario autenticado.
 - A solicitacao e vinculada ao usuario autenticado em `owner_user_id`.
+- `location_id` e `block_id` sao obrigatorios, devem estar ativos e o bloco deve pertencer ao local informado.
+- A resposta mantem `local` e `bloco` com nomes legiveis, alem dos respectivos IDs.
 - `sala` aceita somente `101-120`, `201-220` ou `301-320`.
 - Todo chamado usa os dados do usuario autenticado, inclusive quando ele pertence ao grupo Administradores.
 - O protocolo e gerado apos o insert, usando ano corrente e ID.

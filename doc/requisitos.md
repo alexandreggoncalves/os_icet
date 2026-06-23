@@ -45,6 +45,7 @@
 | RF39 | Permitir rejeitar e remover somente cadastros pendentes | Implementado |
 | RF40 | Filtrar consultas e relatorios pelo usuario atribuido | Implementado |
 | RF41 | Restringir salas aos intervalos 101-120, 201-220 e 301-320 | Implementado |
+| RF42 | Persistir local e bloco da solicitacao por chaves estrangeiras | Implementado |
 
 ## Regras de negocio
 
@@ -76,6 +77,7 @@
 - O SIAPE da solicitacao e obrigatorio, deve ter 7 digitos e sempre vem do banco.
 - A solicitacao fica vinculada ao usuario autenticado para permitir o acompanhamento e as interacoes proprias.
 - A sala deve possuir tres algarismos e pertencer aos intervalos `101-120`, `201-220` ou `301-320`.
+- Local e bloco sao persistidos por `location_id` e `block_id`; o bloco informado deve pertencer ao local selecionado.
 - O administrador master de login `admin` recebe o SIAPE reservado `0000000` para permitir a abertura de solicitacoes iniciais.
 - Toda solicitacao recebe protocolo `OS-ANO-NNNNN`.
 - Ao criar solicitacao pelo endpoint principal, o sistema registra interacao inicial.

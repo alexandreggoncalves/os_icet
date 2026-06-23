@@ -121,8 +121,8 @@ class ServiceRequest(models.Model):
     siape = models.CharField(max_length=40)
     email = models.EmailField()
     perfil = models.CharField(max_length=120)
-    local = models.CharField(max_length=180, default="")
-    bloco = models.CharField(max_length=120)
+    location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="requests", db_column="location_id")
+    block = models.ForeignKey(Block, on_delete=models.PROTECT, related_name="requests", db_column="block_id")
     sala = models.CharField(max_length=120)
     categoria = models.CharField(max_length=180)
     descricao = models.TextField()
@@ -142,7 +142,7 @@ class ServiceRequest(models.Model):
     @property
     def localizacao(self):
         """Monta a localização legível exibida em consultas, detalhes e relatórios."""
-        parts = [self.local, self.bloco, f"Sala {self.sala}" if self.sala else ""]
+        parts = [self.location.nome, self.block.nome, f"Sala {self.sala}" if self.sala else ""]
         return " - ".join(part for part in parts if part)
 
 

@@ -214,6 +214,7 @@ Validar manualmente:
 17. Data/hora e prazo estimado na lista de solicitacoes.
 18. Carregamento inicial do frontend sem erros de sintaxe JavaScript.
 19. Sala restrita aos intervalos 101-120, 201-220 e 301-320.
+20. Solicitacoes gravando `location_id` e `block_id`, sem colunas textuais `local` e `bloco`.
 
 ## 13. Como trabalhar no Git
 

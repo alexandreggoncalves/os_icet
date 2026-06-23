@@ -60,8 +60,8 @@ class UserRegistrationTests(TestCase):
             "siape": "1234567",
             "email": "solicitante@ufam.edu.br",
             "perfil": "Docente",
-            "local": "ICET",
-            "bloco": "Bloco A",
+            "location": self.location,
+            "block": self.block_a,
             "sala": "101",
             "categoria": "Suporte Audiovisual",
             "descricao": "Chamado de teste.",
@@ -329,8 +329,8 @@ class UserRegistrationTests(TestCase):
             data=json.dumps(
                 {
                     "siape": "9999999",
-                    "local": "ICET",
-                    "bloco": "Bloco A",
+                    "location_id": self.location.id,
+                    "block_id": self.block_a.id,
                     "sala": "101",
                     "categoria": "Suporte Audiovisual",
                     "descricao": "Teste de SIAPE cadastrado.",
@@ -352,8 +352,8 @@ class UserRegistrationTests(TestCase):
                 "siape": "9999999",
                 "email": "outro@ufam.edu.br",
                 "perfil": "Outro grupo",
-                "local": "ICET",
-                "bloco": "Bloco B",
+                "location_id": self.location.id,
+                "block_id": self.block_b.id,
                 "sala": "102",
                 "categoria": "Suporte Audiovisual",
                 "descricao": "Chamado aberto pelo administrador.",
@@ -368,7 +368,8 @@ class UserRegistrationTests(TestCase):
         self.assertEqual(item.siape, self.admin.siape)
         self.assertEqual(item.email, self.admin.email)
         self.assertEqual(item.perfil, "Administradores")
-        self.assertEqual(item.local, "ICET")
+        self.assertEqual(item.location, self.location)
+        self.assertEqual(item.block, self.block_b)
 
     def test_request_requires_room_in_allowed_ranges(self):
         """Garante salas de 101-120, 201-220 ou 301-320."""
@@ -377,8 +378,8 @@ class UserRegistrationTests(TestCase):
                 response = self.post_json(
                     "/api/requests",
                     {
-                        "local": "ICET",
-                        "bloco": "Bloco B",
+                        "location_id": self.location.id,
+                        "block_id": self.block_b.id,
                         "sala": room,
                         "categoria": "Suporte Audiovisual",
                         "descricao": "Sala inválida.",
@@ -386,6 +387,26 @@ class UserRegistrationTests(TestCase):
                     authenticated=True,
                 )
                 self.assertEqual(response.status_code, 422)
+
+    def test_request_rejects_block_from_another_location(self):
+        """Impede gravar block_id que nao pertence ao location_id informado."""
+        other_location = Location.objects.create(nome="Outro Campus")
+        other_block = Block.objects.create(location=other_location, nome="Bloco X")
+
+        response = self.post_json(
+            "/api/requests",
+            {
+                "location_id": self.location.id,
+                "block_id": other_block.id,
+                "sala": "101",
+                "categoria": "Suporte Audiovisual",
+                "descricao": "Relacao de local e bloco invalida.",
+            },
+            authenticated=True,
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertFalse(ServiceRequest.objects.exists())
 
     def test_open_request_cannot_be_resolved_before_in_progress(self):
         """Garante que solicitacao aberta nao seja resolvida sem atendimento previo."""
@@ -528,8 +549,8 @@ class UserRegistrationTests(TestCase):
             siape="1234567",
             email="solicitante@ufam.edu.br",
             perfil="Docente",
-            local="ICET",
-            bloco="A",
+            location=self.location,
+            block=self.block_a,
             sala="101",
             categoria=demand.nome,
             descricao="Solicitação histórica",
@@ -574,8 +595,8 @@ class UserRegistrationTests(TestCase):
             siape="7654321",
             email="solicitante@ufam.edu.br",
             perfil="Docente",
-            local=location.nome,
-            bloco=block.nome,
+            location=location,
+            block=block,
             sala="112",
             categoria="Suporte",
             descricao="Solicitação histórica",
@@ -589,5 +610,5 @@ class UserRegistrationTests(TestCase):
         )
         self.assertEqual(update_block_response.status_code, 200)
         service_request.refresh_from_db()
-        self.assertEqual(service_request.local, "Campus Atualizado")
-        self.assertEqual(service_request.bloco, "Bloco Atualizado")
+        self.assertEqual(service_request.location.nome, "Campus Atualizado")
+        self.assertEqual(service_request.block.nome, "Bloco Atualizado")

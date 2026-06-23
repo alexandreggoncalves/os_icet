@@ -18,6 +18,10 @@ No Docker Compose, o PostgreSQL roda no servico `db` e expoe a porta interna `54
 erDiagram
     GROUPS ||--o{ USERS : possui
     USERS ||--o{ REQUESTS : abre
+    USERS ||--o{ REQUESTS : atende
+    LOCATIONS ||--o{ BLOCKS : possui
+    LOCATIONS ||--o{ REQUESTS : localiza
+    BLOCKS ||--o{ REQUESTS : localiza
     REQUESTS ||--o{ INTERACTIONS : contem
     USERS ||--o{ INTERACTIONS : escreve
     INTERACTIONS ||--o{ ATTACHMENTS : possui
@@ -57,15 +61,32 @@ erDiagram
         timestamptz created_at
     }
 
+    LOCATIONS {
+        bigint id PK
+        varchar nome UK
+        boolean active
+        timestamptz created_at
+    }
+
+    BLOCKS {
+        bigint id PK
+        bigint location_id FK
+        varchar nome
+        boolean active
+        timestamptz created_at
+    }
+
     REQUESTS {
         bigint id PK
         varchar protocolo UK
         bigint owner_user_id FK
+        bigint assigned_user_id FK
+        bigint location_id FK
+        bigint block_id FK
         varchar nome
         varchar siape
         varchar email
         varchar perfil
-        varchar bloco
         varchar sala
         varchar categoria
         text descricao
@@ -202,8 +223,8 @@ Solicitacoes de atendimento.
 | `siape` | `CharField` | SIAPE do solicitante |
 | `email` | `EmailField` | E-mail do solicitante |
 | `perfil` | `CharField` | Perfil/grupo |
-| `local` | `CharField` | Nome historico do local selecionado |
-| `bloco` | `CharField` | Localizacao |
+| `location_id` | `ForeignKey` | FK protegida para `locations` |
+| `block_id` | `ForeignKey` | FK protegida para `blocks` |
 | `sala` | `CharField` | Codigo numerico: 101-120, 201-220 ou 301-320 |
 | `categoria` | `CharField` | Tipo de demanda |
 | `descricao` | `TextField` | Descricao do problema |
@@ -272,6 +293,8 @@ Tokens de sessao Bearer.
 A migracao `0003_set_master_admin_siape` atribui o SIAPE reservado `0000000` ao usuario master de login `admin` apenas quando ele ainda nao possui SIAPE. O comando `seed_data` usa o mesmo valor nas instalacoes novas.
 
 A migracao `0007_normalize_service_request_rooms` substitui salas existentes pela sequencia `101, 201, 301, 102, 202, 302...`, limitada aos sufixos `01-20` e repetida quando houver mais de 60 solicitacoes.
+
+A migracao `0008_service_request_location_block_foreign_keys` converte os textos legados de local e bloco em `location_id` e `block_id`. Pares ainda nao cadastrados sao criados durante a conversao para preservar todas as solicitacoes.
 
 Aplicar migrations:
 

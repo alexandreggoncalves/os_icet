@@ -75,8 +75,8 @@ const emptyRequest = {
   siape: "",
   email: "",
   perfil: "Docente",
-  local: "",
-  bloco: "",
+  location_id: "",
+  block_id: "",
   sala: "",
   categoria: "Manutenção de Hardware",
   descricao: ""
@@ -922,7 +922,7 @@ function RequestForm({
   const [form, setForm] = useState(emptyRequest);
   const activeLocations = locations.filter(item => item.active !== false);
   const activeBlocks = blocks.filter(item => item.active !== false);
-  const selectedLocation = activeLocations.find(item => item.nome === form.local) || null;
+  const selectedLocation = activeLocations.find(item => Number(item.id) === Number(form.location_id)) || null;
   const filteredBlocks = selectedLocation ? activeBlocks.filter(item => Number(item.local_id || item.location_id) === Number(selectedLocation.id)) : [];
   // Define valores iniciais considerando listas carregadas do backend.
   function defaultRequestValues() {
@@ -930,28 +930,28 @@ function RequestForm({
     const firstBlock = firstLocation ? activeBlocks.find(item => Number(item.local_id || item.location_id) === Number(firstLocation.id)) : null;
     return {
       ...emptyRequest,
-      local: firstLocation?.nome || "",
-      bloco: firstBlock?.nome || ""
+      location_id: firstLocation?.id || "",
+      block_id: firstBlock?.id || ""
     };
   }
   const registeredSiape = user?.siape || "";
   const hasRegisteredSiape = Boolean(registeredSiape);
   useEffect(() => {
-    if (!form.local && activeLocations[0]) {
+    if (!form.location_id && activeLocations[0]) {
       setForm(current => ({
         ...current,
-        local: activeLocations[0].nome
+        location_id: activeLocations[0].id
       }));
     }
   }, [locations]);
   useEffect(() => {
-    if (form.local && !form.bloco && filteredBlocks[0]) {
+    if (form.location_id && !form.block_id && filteredBlocks[0]) {
       setForm(current => ({
         ...current,
-        bloco: filteredBlocks[0].nome
+        block_id: filteredBlocks[0].id
       }));
     }
-  }, [form.local, blocks]);
+  }, [form.location_id, blocks]);
   const requestPayload = {
     ...form,
     nome: user.nome,
@@ -964,8 +964,8 @@ function RequestForm({
     setForm(current => ({
       ...current,
       [field]: value,
-      ...(field === "local" ? {
-        bloco: ""
+      ...(field === "location_id" ? {
+        block_id: ""
       } : {})
     }));
   }
@@ -1029,15 +1029,21 @@ function RequestForm({
     col: "col-sm-6"
   }), /*#__PURE__*/React.createElement(Select, {
     label: "Local",
-    value: form.local,
-    onChange: v => update("local", v),
-    options: activeLocations.map(item => item.nome),
+    value: String(form.location_id),
+    onChange: v => update("location_id", v),
+    options: activeLocations.map(item => ({
+      value: String(item.id),
+      label: item.nome
+    })),
     col: "col-sm-6"
   }), /*#__PURE__*/React.createElement(Select, {
     label: "Bloco",
-    value: form.bloco,
-    onChange: v => update("bloco", v),
-    options: filteredBlocks.map(item => item.nome),
+    value: String(form.block_id),
+    onChange: v => update("block_id", v),
+    options: filteredBlocks.map(item => ({
+      value: String(item.id),
+      label: item.nome
+    })),
     col: "col-sm-6"
   }), /*#__PURE__*/React.createElement(Input, {
     label: "Sala",
